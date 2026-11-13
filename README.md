@@ -32,7 +32,6 @@
   * Persiste datos únicamente en `TinyDB` local por fecha, sin exportación ni analítica avanzada.
   * Renderiza la onda ECG borrando y reiniciando un lienzo estático (`Canvas` de `400 px`).
   * Emplea etiquetas clínicas inadecuadas en la interfaz de usuario.
-* **Objetivo como Cliente / Product Owner:** Migrar y escalar la visualización, gestión e historial de los datos biométricos hacia una **aplicación móvil moderna, fluida, escalable y bien estructurada** (multiplataforma o nativa), sustituyendo tanto la app de MIT App Inventor como las herramientas de prueba en PC (`PyQtGraph` / `Matplotlib`).
 * **Arquitectura de desarrollo desacoplada:** El equipo de **4 estudiantes de 3º de Ingeniería Informática** trabaja en paralelo sobre una arquitectura desacoplada en tres bloques:
 
 ```text
