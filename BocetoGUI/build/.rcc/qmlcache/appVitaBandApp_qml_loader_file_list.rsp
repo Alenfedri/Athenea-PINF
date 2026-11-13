@@ -1,0 +1,8 @@
+--resource
+C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/qmake_VitaBand.qrc
+--resource
+C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/appVitaBandApp_raw_qml_0.qrc
+/VitaBand/Main.qml
+/VitaBand/Login.qml
+/VitaBand/Dashboard.qml
+/VitaBand/Activity.qml

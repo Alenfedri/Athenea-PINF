@@ -1,0 +1,14 @@
+-rootPath
+C:/Users/Propietario/Desktop/VITABAND
+-cmake-output
+-output-file
+C:/Users/Propietario/Desktop/VITABAND/build/.qt/qml_imports/appVitaBandApp_build.cmake
+-importPath
+C:/Users/Propietario/Desktop/VITABAND/build
+-importPath
+C:/Users/Propietario/Desktop/VITABAND/build/VitaBand
+-importPath
+C:/Qt/6.12.0/mingw_64/qml
+-qrcFiles
+C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/qmake_VitaBand.qrc
+C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/appVitaBandApp_raw_qml_0.qrc

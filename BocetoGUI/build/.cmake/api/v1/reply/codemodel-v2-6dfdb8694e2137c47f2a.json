@@ -1,0 +1,240 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "VitaBandApp",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "all_aotstats::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_aotstats-Debug-5da339fc9d3cd288cd1d.json",
+					"name" : "all_aotstats",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint-Debug-93d38a570dfa8af68ca5.json",
+					"name" : "all_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint_json-Debug-20717b1744e7cc06424a.json",
+					"name" : "all_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint_module::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint_module-Debug-a0d95d48cb01371803d3.json",
+					"name" : "all_qmllint_module",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmltyperegistrations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmltyperegistrations-Debug-199f96e848e408a40d7b.json",
+					"name" : "all_qmltyperegistrations",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp-Debug-1e8546ce4b91a5322c6d.json",
+					"name" : "appVitaBandApp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_autogen-Debug-1bd5b09a03cfd048bb86.json",
+					"name" : "appVitaBandApp_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_autogen_timestamp_deps-Debug-d8d1216542d6a6fed7a5.json",
+					"name" : "appVitaBandApp_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_copy_qml::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_copy_qml-Debug-b648f21a4b1b92ecc846.json",
+					"name" : "appVitaBandApp_copy_qml",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_copy_res::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_copy_res-Debug-0c75e04f7700285bd446.json",
+					"name" : "appVitaBandApp_copy_res",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmlimportscan::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmlimportscan-Debug-bb8dcb9d5a6ded3a0563.json",
+					"name" : "appVitaBandApp_qmlimportscan",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmllint-Debug-c839743b0edd695234a0.json",
+					"name" : "appVitaBandApp_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmllint_json-Debug-3d367905efca8bfaeb89.json",
+					"name" : "appVitaBandApp_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmllint_module::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmllint_module-Debug-92f54fe8e482bb1e9d5d.json",
+					"name" : "appVitaBandApp_qmllint_module",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmlpreview::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmlpreview-Debug-6c6c0bd946e39cebd9de.json",
+					"name" : "appVitaBandApp_qmlpreview",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appVitaBandApp_qmltyperegistration::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appVitaBandApp_qmltyperegistration-Debug-536932a05c1c0347c688.json",
+					"name" : "appVitaBandApp_qmltyperegistration",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "clean_qml_context_properties::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-clean_qml_context_properties-Debug-7aacbd29702db1d950e9.json",
+					"name" : "clean_qml_context_properties",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "dump_qml_context_properties::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-dump_qml_context_properties-Debug-2ba886e9269bd22ef436.json",
+					"name" : "dump_qml_context_properties",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "generate_finalqtconf_appVitaBandApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-generate_finalqtconf_appVitaBandApp-Debug-74bda58745311d2df323.json",
+					"name" : "generate_finalqtconf_appVitaBandApp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "generate_qmlls_build_ini_file::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-generate_qmlls_build_ini_file-Debug-7559b6f1aac04caf9bcf.json",
+					"name" : "generate_qmlls_build_ini_file",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "module_appVitaBandApp_aotstats_target::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-module_appVitaBandApp_aotstats_target-Debug-801339c34c4bed981c7f.json",
+					"name" : "module_appVitaBandApp_aotstats_target",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/Propietario/Desktop/VITABAND/build",
+		"source" : "C:/Users/Propietario/Desktop/VITABAND"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

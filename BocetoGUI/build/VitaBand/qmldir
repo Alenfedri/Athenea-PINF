@@ -1,0 +1,9 @@
+module VitaBand
+typeinfo appVitaBandApp.qmltypes
+prefer :/VitaBand/
+Main 1.0 Main.qml
+Login 1.0 Login.qml
+Dashboard 1.0 Dashboard.qml
+Activity 1.0 Activity.qml
+depends QtQuick
+

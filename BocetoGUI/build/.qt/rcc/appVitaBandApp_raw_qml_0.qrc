@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/VitaBand/">
+    <file alias="Main.qml">C:/Users/Propietario/Desktop/VITABAND/Main.qml</file>
+    <file alias="Login.qml">C:/Users/Propietario/Desktop/VITABAND/Login.qml</file>
+    <file alias="Dashboard.qml">C:/Users/Propietario/Desktop/VITABAND/Dashboard.qml</file>
+    <file alias="Activity.qml">C:/Users/Propietario/Desktop/VITABAND/Activity.qml</file>
+  </qresource>
+</RCC>
+

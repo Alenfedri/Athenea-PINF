@@ -1,0 +1,68 @@
+[
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\appVitaBandApp_autogen\\mocs_compilation.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\appVitaBandApp_autogen\\mocs_compilation.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/appVitaBandApp_autogen/mocs_compilation.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/appVitaBandApp_autogen/mocs_compilation.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\main.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\main.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/main.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/main.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\BleController.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\BleController.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/BleController.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/BleController.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -Wa,-mbig-obj -o CMakeFiles\\appVitaBandApp.dir\\appvitabandapp_qmltyperegistrations.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\appvitabandapp_qmltyperegistrations.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/appvitabandapp_qmltyperegistrations.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/appvitabandapp_qmltyperegistrations.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.qt\\rcc\\qrc_qmake_VitaBand.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.qt\\rcc\\qrc_qmake_VitaBand.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/qrc_qmake_VitaBand.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.qt/rcc/qrc_qmake_VitaBand.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.rcc\\qmlcache\\appVitaBandApp_qmlcache_loader.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.rcc\\qmlcache\\appVitaBandApp_qmlcache_loader.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.rcc/qmlcache/appVitaBandApp_qmlcache_loader.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.rcc/qmlcache/appVitaBandApp_qmlcache_loader.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.rcc\\qmlcache\\appVitaBandApp_Main_qml.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.rcc\\qmlcache\\appVitaBandApp_Main_qml.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.rcc/qmlcache/appVitaBandApp_Main_qml.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.rcc/qmlcache/appVitaBandApp_Main_qml.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.rcc\\qmlcache\\appVitaBandApp_Login_qml.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.rcc\\qmlcache\\appVitaBandApp_Login_qml.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.rcc/qmlcache/appVitaBandApp_Login_qml.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.rcc/qmlcache/appVitaBandApp_Login_qml.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.rcc\\qmlcache\\appVitaBandApp_Dashboard_qml.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.rcc\\qmlcache\\appVitaBandApp_Dashboard_qml.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.rcc/qmlcache/appVitaBandApp_Dashboard_qml.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.rcc/qmlcache/appVitaBandApp_Dashboard_qml.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.rcc\\qmlcache\\appVitaBandApp_Activity_qml.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.rcc\\qmlcache\\appVitaBandApp_Activity_qml.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.rcc/qmlcache/appVitaBandApp_Activity_qml.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.rcc/qmlcache/appVitaBandApp_Activity_qml.cpp.obj"
+},
+{
+  "directory": "C:/Users/Propietario/Desktop/VITABAND/build",
+  "command": "c:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_BLUETOOTH_LIB -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_OPENGL_LIB -DQT_QMLINTEGRATION_LIB -DQT_QML_LIB -DQT_QUICK_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 @CMakeFiles/appVitaBandApp.dir/includes_CXX.rsp -g -o CMakeFiles\\appVitaBandApp.dir\\build\\.qt\\rcc\\qrc_appVitaBandApp_raw_qml_0.cpp.obj -c C:\\Users\\Propietario\\Desktop\\VITABAND\\build\\.qt\\rcc\\qrc_appVitaBandApp_raw_qml_0.cpp",
+  "file": "C:/Users/Propietario/Desktop/VITABAND/build/.qt/rcc/qrc_appVitaBandApp_raw_qml_0.cpp",
+  "output": "CMakeFiles/appVitaBandApp.dir/build/.qt/rcc/qrc_appVitaBandApp_raw_qml_0.cpp.obj"
+}
+]
