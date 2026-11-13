@@ -21,8 +21,7 @@
   - [2.4. Protocolo BLE Original (Referencia para Pasarela BLE↔MQTT y Mock)](#24-protocolo-ble-original-referencia-para-pasarela-blemqtt-y-mock)
   - [2.5. Casos Borde y Limitaciones Experimentales Conocidas](#25-casos-borde-y-limitaciones-experimentales-conocidas)
 - [3. Requisitos Funcionales y de Calidad (App Móvil)](#3-requisitos-funcionales-y-de-calidad-app-móvil)
-- [4. Gobernanza, Rol del Product Owner y Reglas de Tutoría](#4-gobernanza-rol-del-product-owner-y-reglas-de-tutoría)
-
+  
 ---
 
 ## 1. Contexto y Objetivo del Proyecto
