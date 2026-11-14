@@ -1,0 +1,10 @@
+{
+    "mqtt": {
+        "broker_host": "localhost",
+        "broker_port": 1883,
+        "device_id": "vitaband-01"
+    },
+    "monitorizacion": {
+        "ventana_segundos": 6
+    }
+}
