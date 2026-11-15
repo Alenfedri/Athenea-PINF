@@ -1,0 +1,559 @@
+openapi: 3.0.3
+info:
+  title: VitaBand - API de historial y sincronización
+  version: 1.0.0
+  description: |
+    API REST del historial de VitaBand. La telemetría en tiempo real NO pasa por aquí
+    (va por MQTT, ver `mqtt_contracts.json`).
+
+    **Prototipo académico, no es un dispositivo médico certificado.** Los textos generados
+    (observaciones) usan solo denominaciones neutras ("aviso experimental", "FC elevada en
+    reposo", "niveles bajos en reposo").
+
+    Decisiones de diseño (MVP):
+    - **Offline-first:** la app guarda en local (RF-14, RF-26, RF-28) y sube por lotes
+      cuando hay conexión. Todas las subidas son **idempotentes** por `id` (UUID generado en
+      el cliente), así un reintento nunca duplica registros (RF-20).
+    - **Registro periódico:** un registro por cada mensaje MQTT `vitaband/hr_avg` (cada 10 s),
+      completado con el último `vitaband/vitals`. Nunca se guardan registros con BPM 0.0.
+    - **Actividad deportiva:** registro detallado a 1 Hz (mensajes `vitaband/vitals`) mientras
+      dura la actividad, en paralelo al periódico (RF-30/31).
+    - **Retención (servidor):** 30 días para historial periódico, 365 días para actividades
+      deportivas; la purga no elimina datos vinculados a actividades guardadas (RF-40, 44, 46).
+    - **Escritorio:** consume los mismos endpoints GET (RF-19, RF-36); el estado
+      pendiente/sincronizado/error es lógica local de cada cliente (RF-21).
+    - **Fuera del MVP:** borrado manual de mediciones y baja de cuenta (RF-38, RF-39),
+      zoom de ECG en servidor (RF-35, se resuelve en cliente con `max_points`).
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Desarrollo local
+tags:
+  - name: Auth
+  - name: Measurements
+  - name: Activities
+  - name: ECG
+  - name: Observations
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Registro de usuario (RF-41)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Usuario creado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: Ya existe una cuenta con ese email.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Inicio de sesión con credenciales (RF-01)
+      description: Siempre exige segundo factor (RF-42). Devuelve un `mfa_token` temporal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Credenciales válidas; se ha enviado un código al email.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaChallenge' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/mfa/verify:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Verificación del segundo factor (RF-42)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaVerifyRequest' }
+      responses:
+        '200':
+          description: Sesión iniciada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Renovar el access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: Nuevo par de tokens.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cierre de sesión (RF-02)
+      description: Invalida el refresh token; el acceso posterior exige autenticarse de nuevo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '204': { description: Sesión cerrada. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /measurements/batch:
+    post:
+      tags: [Measurements]
+      summary: Sincronizar registros periódicos (RF-18, RF-20)
+      description: |
+        Subida por lotes e idempotente. Los `id` ya existentes se cuentan en `duplicates`
+        y no se modifican. Máximo 500 registros por petición. Los registros quedan
+        vinculados al usuario del token (RF-03).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/Measurement' }
+      responses:
+        '200':
+          description: Resultado de la sincronización.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BatchResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /measurements:
+    get:
+      tags: [Measurements]
+      summary: Consultar historial periódico por fecha (RF-09, RF-15, RF-16)
+      description: |
+        Devuelve puntos agregados por `interval`. Solo aparecen cubetas con datos;
+        las interrupciones del registro se devuelven en `gaps` para que la UI no
+        muestre valores inexistentes como mediciones (RF-27).
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: interval
+          in: query
+          description: Tamaño de la cubeta de agregación. `raw` = registros sin agregar (10 s).
+          schema:
+            type: string
+            enum: [raw, 1m, 5m, 15m, 1h, 1d]
+            default: 5m
+      responses:
+        '200':
+          description: Serie temporal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeasurementSeries' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /measurements/stats:
+    get:
+      tags: [Measurements]
+      summary: Medias, mínimos y máximos del periodo (RF-22, RF-25)
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Estadísticas globales y separadas por reposo/actividad.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StatsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /activities:
+    get:
+      tags: [Activities]
+      summary: Listar actividades deportivas (RF-45)
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Actividades del usuario (sin muestras).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ActivitySummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /activities/{activity_id}:
+    parameters:
+      - $ref: '#/components/parameters/ActivityId'
+    put:
+      tags: [Activities]
+      summary: Subir actividad finalizada (RF-31), idempotente
+      description: El servidor calcula las estadísticas y genera su resumen (RF-48).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivityUpload' }
+      responses:
+        '200':
+          description: Actividad ya existente (sin cambios).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityDetail' }
+        '201':
+          description: Actividad creada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Activities]
+      summary: Detalle de una actividad (RF-32)
+      responses:
+        '200':
+          description: Actividad con muestras y estadísticas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /ecg/segments/{segment_id}:
+    parameters:
+      - name: segment_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [ECG]
+      summary: Subir un segmento de ECG (RF-33), idempotente
+      description: Segmentos de hasta 60 s (6000 muestras a 100 Hz).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EcgSegment' }
+      responses:
+        '200': { description: Segmento ya existente (sin cambios). }
+        '201': { description: Segmento creado. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /ecg/segments:
+    get:
+      tags: [ECG]
+      summary: Consultar ECG histórico en vista compacta (RF-34)
+      description: |
+        `max_points` limita el nº de muestras devuelto por segmento (decimación por
+        máximo/mínimo para conservar los picos), para ajustarse al espacio de la gráfica.
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: max_points
+          in: query
+          schema: { type: integer, minimum: 50, maximum: 6000, default: 500 }
+      responses:
+        '200':
+          description: Segmentos en el rango.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/EcgSegment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /observations:
+    get:
+      tags: [Observations]
+      summary: Observaciones orientativas generadas automáticamente (RF-24, RF-49)
+      description: |
+        Texto de apoyo generado por el servidor, **sin valor diagnóstico**. Solo
+        terminología neutra de prototipo académico.
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: activity_id
+          in: query
+          description: Si se indica, solo las observaciones de esa actividad.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Observaciones del periodo o actividad.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Observation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    From:
+      name: from
+      in: query
+      required: true
+      description: Inicio del rango (ISO 8601, UTC), inclusivo.
+      schema: { type: string, format: date-time }
+    To:
+      name: to
+      in: query
+      required: true
+      description: Fin del rango (ISO 8601, UTC), exclusivo.
+      schema: { type: string, format: date-time }
+    ActivityId:
+      name: activity_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Petición inválida.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: No autenticado o credenciales/código inválidos.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Recurso inexistente (o de otro usuario).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: validation_error }
+        message: { type: string }
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8 }
+        display_name: { type: string, maxLength: 60 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    MfaChallenge:
+      type: object
+      required: [mfa_token]
+      properties:
+        mfa_token: { type: string, description: Token temporal de un solo uso. }
+    MfaVerifyRequest:
+      type: object
+      required: [mfa_token, code]
+      properties:
+        mfa_token: { type: string }
+        code: { type: string, pattern: '^[0-9]{6}$' }
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        expires_in: { type: integer, description: Segundos de validez del access token. }
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+    ActivityLevel:
+      type: integer
+      enum: [0, 1, 2, 255]
+      description: 0 Baja/Reposo, 1 Media, 2 Intensa, 255 En transición / Sin clasificar.
+    WarningLevel:
+      type: integer
+      enum: [0, 1, 2, 255]
+      description: 0 niveles bajos en reposo, 1 FC elevada en reposo, 2 aviso conjunto elevado en reposo, 255 sin avisos.
+    Measurement:
+      type: object
+      required: [id, ts, bpm_avg]
+      description: Registro periódico (origen MQTT vitaband/hr_avg + último vitaband/vitals).
+      properties:
+        id: { type: string, format: uuid, description: Generado en el cliente (idempotencia). }
+        ts: { type: string, format: date-time }
+        bpm_avg: { type: integer, minimum: 50, maximum: 200 }
+        rpm: { type: number, minimum: 6, maximum: 60, nullable: true, description: null si no había RPM válido. }
+        temp_c: { type: number, nullable: true }
+        activity: { $ref: '#/components/schemas/ActivityLevel' }
+        warning: { $ref: '#/components/schemas/WarningLevel' }
+    BatchResult:
+      type: object
+      required: [accepted, duplicates]
+      properties:
+        accepted: { type: integer }
+        duplicates: { type: integer }
+    Metric:
+      type: object
+      required: [avg, min, max]
+      properties:
+        avg: { type: number }
+        min: { type: number }
+        max: { type: number }
+    MeasurementPoint:
+      type: object
+      required: [ts, count, bpm]
+      properties:
+        ts: { type: string, format: date-time, description: Inicio de la cubeta. }
+        count: { type: integer, description: Nº de registros agregados. }
+        bpm: { $ref: '#/components/schemas/Metric' }
+        rpm: { allOf: [{ $ref: '#/components/schemas/Metric' }], nullable: true }
+        temp_c: { allOf: [{ $ref: '#/components/schemas/Metric' }], nullable: true }
+        activity: { $ref: '#/components/schemas/ActivityLevel' }
+        warning: { $ref: '#/components/schemas/WarningLevel' }
+    TimeRange:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+    MeasurementSeries:
+      type: object
+      required: [interval, points, gaps]
+      properties:
+        interval: { type: string }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/MeasurementPoint' }
+        gaps:
+          type: array
+          description: Intervalos sin datos (RF-27). La UI los dibuja como hueco.
+          items: { $ref: '#/components/schemas/TimeRange' }
+    StatsBlock:
+      type: object
+      required: [count, bpm]
+      properties:
+        count: { type: integer }
+        bpm: { $ref: '#/components/schemas/Metric' }
+        rpm: { allOf: [{ $ref: '#/components/schemas/Metric' }], nullable: true }
+        temp_c: { allOf: [{ $ref: '#/components/schemas/Metric' }], nullable: true }
+    StatsResponse:
+      type: object
+      required: [overall]
+      properties:
+        overall: { $ref: '#/components/schemas/StatsBlock' }
+        rest: { allOf: [{ $ref: '#/components/schemas/StatsBlock' }], nullable: true, description: Registros con activity = 0. }
+        active: { allOf: [{ $ref: '#/components/schemas/StatsBlock' }], nullable: true, description: Registros con activity = 1 o 2. }
+    VitalsSample:
+      type: object
+      required: [ts, bpm, rpm, temp_c, activity, warning]
+      description: Muestra a 1 Hz (origen MQTT vitaband/vitals). Solo muestras con bpm y rpm válidos.
+      properties:
+        ts: { type: string, format: date-time }
+        bpm: { type: number }
+        rpm: { type: number }
+        temp_c: { type: number }
+        activity: { $ref: '#/components/schemas/ActivityLevel' }
+        warning: { $ref: '#/components/schemas/WarningLevel' }
+    ActivityUpload:
+      type: object
+      required: [started_at, ended_at, samples]
+      properties:
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        sport_type: { type: string, nullable: true, description: Opcional / debatible (RF-50). }
+        samples:
+          type: array
+          items: { $ref: '#/components/schemas/VitalsSample' }
+    ActivitySummary:
+      type: object
+      required: [id, started_at, duration_s]
+      properties:
+        id: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+        duration_s: { type: integer }
+        sport_type: { type: string, nullable: true }
+        stats: { $ref: '#/components/schemas/StatsBlock' }
+        summary: { type: string, nullable: true, description: Resumen automático según duración y esfuerzo (RF-48). }
+    ActivityDetail:
+      allOf:
+        - $ref: '#/components/schemas/ActivitySummary'
+        - type: object
+          required: [samples]
+          properties:
+            samples:
+              type: array
+              items: { $ref: '#/components/schemas/VitalsSample' }
+    EcgSegment:
+      type: object
+      required: [start_ts, fs, mode, samples]
+      properties:
+        start_ts: { type: string, format: date-time, description: Instante de la primera muestra. }
+        fs: { type: integer, enum: [100] }
+        mode: { type: string, enum: [filtered, raw] }
+        samples:
+          type: array
+          maxItems: 6000
+          items: { type: integer }
+    Observation:
+      type: object
+      required: [id, kind, created_at, text]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [daily_summary, activity_summary, pattern]
+        created_at: { type: string, format: date-time }
+        period: { $ref: '#/components/schemas/TimeRange' }
+        activity_id: { type: string, format: uuid, nullable: true }
+        text:
+          type: string
+          description: Texto orientativo, sin valor diagnóstico y con terminología neutra.
+          example: Durante el reposo, la FC media fue de 68 BPM; sin avisos experimentales en el periodo.
