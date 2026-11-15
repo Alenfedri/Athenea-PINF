@@ -1,0 +1,354 @@
+{
+  "contract_version": "1.0.0",
+  "title": "VitaBand - Contrato MQTT (mock / pasarela BLE<->MQTT / app)",
+  "disclaimer": "Prototipo académico. No es un dispositivo médico certificado. Prohibido en UI y documentación: 'diagnóstico médico', 'taquicardia', 'depresión vital', 'colapso'.",
+  "broker": {
+    "protocol": "MQTT 3.1.1",
+    "default_port": 1883,
+    "topic_prefix": "vitaband",
+    "payload_encoding": "UTF-8",
+    "timestamp_format": "epoch en milisegundos UTC (entero)"
+  },
+  "enums": {
+    "activity": {
+      "description": "Byte 8 de la trama BLE: actividad física interpretada.",
+      "values": {
+        "0": "Baja / Reposo",
+        "1": "Media",
+        "2": "Intensa",
+        "255": "En transición / Sin clasificar"
+      }
+    },
+    "warning": {
+      "description": "Byte 9 de la trama BLE: aviso experimental.",
+      "values": {
+        "0": "Aviso por niveles bajos en reposo",
+        "1": "Aviso por FC elevada en reposo",
+        "2": "Aviso conjunto elevado en reposo",
+        "255": "Sin avisos"
+      }
+    },
+    "device_state": {
+      "description": "Estado del dispositivo publicado en vitaband/status.",
+      "values": {
+        "calibrating": "Calibración respiratoria de 6 s en curso. No se publican ecg ni vitals.",
+        "streaming": "Calibración válida completada. Se publican ecg y vitals.",
+        "offline": "Dispositivo/mock desconectado (Last Will)."
+      }
+    },
+    "ecg_mode": {
+      "values": {
+        "filtered": "Butterworth 4-30 Hz + offset 1600",
+        "raw": "ADC crudo [0-4095]"
+      }
+    }
+  },
+  "topics": [
+    {
+      "name": "vitaband/ecg",
+      "direction": "device_to_app",
+      "publisher": "mock | pasarela BLE-MQTT",
+      "subscribers": [
+        "app"
+      ],
+      "qos": 0,
+      "retained": false,
+      "rate": "10 mensajes/s (lote de 10 muestras a 100 Hz)",
+      "description": "Lote de muestras ECG. ts es el instante de la ÚLTIMA muestra; la muestra i del lote (0..n-1) corresponde a ts - (n-1-i)*10 ms. No se publica durante la calibración.",
+      "payload_format": "application/json",
+      "payload_schema": {
+        "type": "object",
+        "required": [
+          "ts",
+          "fs",
+          "mode",
+          "samples"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ts": {
+            "type": "integer",
+            "description": "epoch ms UTC de la última muestra"
+          },
+          "fs": {
+            "type": "integer",
+            "const": 100
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "filtered",
+              "raw"
+            ]
+          },
+          "samples": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "integer",
+              "minimum": -32768,
+              "maximum": 32767
+            },
+            "description": "filtered: valor+1600 (centrado ~1600). raw: [0-4095]."
+          }
+        }
+      },
+      "example": {
+        "ts": 1763200000000,
+        "fs": 100,
+        "mode": "filtered",
+        "samples": [
+          1601,
+          1586,
+          1591,
+          1603,
+          1610,
+          1598,
+          1590,
+          1595,
+          1602,
+          1599
+        ]
+      }
+    },
+    {
+      "name": "vitaband/vitals",
+      "direction": "device_to_app",
+      "publisher": "mock | pasarela BLE-MQTT",
+      "subscribers": [
+        "app"
+      ],
+      "qos": 0,
+      "retained": false,
+      "rate": "1 mensaje/s",
+      "description": "Constantes vitales y estados interpretados. bpm y rpm valen 0.0 hasta detectar 2 latidos / 2 ciclos respiratorios: la app debe mostrarlos como 'midiendo...' y nunca como medida real. No se publica durante la calibración.",
+      "payload_format": "application/json",
+      "payload_schema": {
+        "type": "object",
+        "required": [
+          "ts",
+          "bpm",
+          "rpm",
+          "temp_c",
+          "activity",
+          "warning"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ts": {
+            "type": "integer"
+          },
+          "bpm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 200,
+            "description": "0.0 = aún sin medida válida"
+          },
+          "rpm": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60,
+            "description": "0.0 = aún sin medida válida; puede congelarse por artefacto postural"
+          },
+          "temp_c": {
+            "type": "number",
+            "description": "Temperatura cutánea en °C (resolución 0.01)"
+          },
+          "activity": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              255
+            ]
+          },
+          "warning": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              255
+            ]
+          }
+        }
+      },
+      "example": {
+        "ts": 1763200001000,
+        "bpm": 71.42,
+        "rpm": 14.1,
+        "temp_c": 36.42,
+        "activity": 0,
+        "warning": 255
+      }
+    },
+    {
+      "name": "vitaband/hr_avg",
+      "direction": "device_to_app",
+      "publisher": "mock | pasarela BLE-MQTT",
+      "subscribers": [
+        "app"
+      ],
+      "qos": 1,
+      "retained": false,
+      "rate": "1 mensaje cada 10 s (solo si hay BPM válido)",
+      "description": "Media de BPM de los últimos 10 s (equivale a los bytes 10-11 del paquete ampliado). Es el disparador del registro periódico del historial.",
+      "payload_format": "application/json",
+      "payload_schema": {
+        "type": "object",
+        "required": [
+          "ts",
+          "bpm_avg"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ts": {
+            "type": "integer"
+          },
+          "bpm_avg": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "BPM enteros, sin multiplicar por 100"
+          }
+        }
+      },
+      "example": {
+        "ts": 1763200010000,
+        "bpm_avg": 71
+      }
+    },
+    {
+      "name": "vitaband/status",
+      "direction": "device_to_app",
+      "publisher": "mock | pasarela BLE-MQTT (también como Last Will)",
+      "subscribers": [
+        "app"
+      ],
+      "qos": 1,
+      "retained": true,
+      "rate": "En cada cambio; 1 Hz mientras state=calibrating",
+      "description": "Estado del dispositivo. Al ser retained, la app conoce el estado en cuanto se suscribe. El Last Will publica {\"state\":\"offline\"} si el publicador cae sin desconectar limpiamente.",
+      "payload_format": "application/json",
+      "payload_schema": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "calibrating",
+              "streaming",
+              "offline"
+            ]
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Solo en calibrating: nº de intento de calibración (se reinicia si amplitud < 100 ADC)"
+          },
+          "remaining_s": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "Solo en calibrating: segundos restantes del intento"
+          }
+        }
+      },
+      "examples": [
+        {
+          "state": "calibrating",
+          "attempt": 1,
+          "remaining_s": 4.0
+        },
+        {
+          "state": "streaming"
+        },
+        {
+          "state": "offline"
+        }
+      ]
+    },
+    {
+      "name": "vitaband/control",
+      "direction": "app_to_device",
+      "publisher": "app",
+      "subscribers": [
+        "mock | pasarela BLE-MQTT"
+      ],
+      "qos": 1,
+      "retained": false,
+      "rate": "Bajo demanda",
+      "description": "Selector de señal ECG. Equivale a escribir en la característica de control BLE (12345678-1234-5678-1234-56789abcdef2).",
+      "payload_format": "text/plain",
+      "payload_schema": {
+        "type": "string",
+        "enum": [
+          "0",
+          "1"
+        ],
+        "description": "\"0\" = ECG filtrada, \"1\" = ECG cruda"
+      },
+      "examples": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "name": "vitaband/mock/scenario",
+      "direction": "tester_to_mock",
+      "publisher": "tests / desarrollador",
+      "subscribers": [
+        "mock (solo el mock, nunca el hardware real)"
+      ],
+      "qos": 1,
+      "retained": false,
+      "rate": "Bajo demanda",
+      "description": "Fija un escenario del mock para probar casos borde. 'auto' devuelve al ciclo automático. La app NO debe depender de este topic.",
+      "payload_format": "text/plain",
+      "payload_schema": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "reposo",
+          "caminar",
+          "correr",
+          "reposo_bajo",
+          "reposo_elevado",
+          "reposo_agitado",
+          "inclinado"
+        ]
+      }
+    }
+  ],
+  "consumer_guidelines": [
+    "Mientras status.state != 'streaming', la app no pinta ECG ni constantes y muestra 'Calibrando... N s'.",
+    "bpm == 0.0 o rpm == 0.0 se muestran como 'Midiendo...' y NO se guardan en el historial.",
+    "activity == 255 se muestra 'En transición / Sin clasificar'; warning == 255 se muestra 'Sin avisos'. Nunca como error.",
+    "Registro periódico: cada mensaje vitaband/hr_avg genera un registro con bpm_avg + último vitals recibido (rpm, temp_c, activity, warning).",
+    "Los topics ecg y vitals son QoS 0: se toleran pérdidas. Usar ts para detectar huecos y reflejarlos como ausencia de datos.",
+    "Fuera de los topics definidos aquí, no se asume ningún otro mensaje."
+  ],
+  "ble_mapping": {
+    "note": "Referencia para la pasarela BLE<->MQTT. Trama little-endian. Los pines LO+/LO- (D7/D8) existen en la PCB pero NO están en la trama BLE v1, por eso no hay campo de electrodos desconectados en este contrato.",
+    "service_uuid": "12345678-1234-5678-1234-56789abcdef0",
+    "data_characteristic_uuid": "12345678-1234-5678-1234-56789abcdef1",
+    "control_characteristic_uuid": "12345678-1234-5678-1234-56789abcdef2",
+    "frame_10_bytes": {
+      "0-1": "int16 ecg -> vitaband/ecg.samples[]",
+      "2-3": "uint16 bpm*100 -> vitals.bpm",
+      "4-5": "uint16 rpm*100 -> vitals.rpm",
+      "6-7": "int16 temp*100 -> vitals.temp_c",
+      "8": "uint8 -> vitals.activity",
+      "9": "uint8 -> vitals.warning"
+    },
+    "frame_12_bytes_extra": {
+      "10-11": "uint16 media BPM 10 s (entero) -> hr_avg.bpm_avg"
+    }
+  }
+}
