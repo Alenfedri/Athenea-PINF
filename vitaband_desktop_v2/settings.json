@@ -1,0 +1,27 @@
+{
+    "mqtt": {
+        "broker_host": "localhost",
+        "broker_port": 1883,
+        "device_id": "vitaband-01"
+    },
+    "monitorizacion": {
+        "ventana_segundos": 6
+    },
+    "persistencia": {
+        "ruta_bd": "vitaband_historial.db"
+    },
+    "registro": {
+        "intervalo_s": 10
+    },
+    "conservacion": {
+        "periodico_dias": 30,
+        "actividades_dias": 365
+    },
+    "intercambio": {
+        "carpeta": "intercambio",
+        "intervalo_comprobacion_s": 60
+    },
+    "observaciones": {
+        "intervalo_min": 60
+    }
+}
