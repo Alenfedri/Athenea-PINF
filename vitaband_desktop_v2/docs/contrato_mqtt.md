@@ -29,9 +29,9 @@ Cada ~10 s la pasarela añade la media temporal de BPM del paquete ampliado de
 
 | Estado | Significado | `ConexionEstado` en la app |
 |---|---|---|
-| `CALIBRATING` | La pulsera está en la ventana inicial de 6 s de respiración | `CALIBRANDO` |
+| `CALIBRATING` | La banda pectoral está en la ventana inicial de 6 s de respiración | `CALIBRANDO` |
 | `READY` | Calibración terminada, datos válidos | `CONECTADO` |
-| `OFFLINE` | La pasarela perdió la pulsera o cayó | `ERROR_COMUNICACION` (se vacían ECG y métricas) |
+| `OFFLINE` | La pasarela perdió la banda pectoral o cayó | `ERROR_COMUNICACION` (se vacían ECG y métricas) |
 
 Como el mensaje es *retained*, al suscribirse la app recibe siempre el último
 estado conocido. Se acepta también el texto plano (`OFFLINE`) por si el Last
@@ -60,7 +60,7 @@ cliente.connect("localhost", 1883, keepalive=30)
 def publicar_estado(estado: str) -> None:
     cliente.publish(TOPIC, json.dumps({"state": estado}), qos=1, retain=True)
 
-# Al conectar con la pulsera:   publicar_estado("CALIBRATING")
+# Al conectar con la banda pectoral:   publicar_estado("CALIBRATING")
 # Al terminar la calibración:   publicar_estado("READY")
 # Si se pierde el BLE:          publicar_estado("OFFLINE")
 ```

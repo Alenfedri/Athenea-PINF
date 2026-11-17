@@ -2,7 +2,7 @@
 
 Estado tras las tareas #23–#30. Los tests automáticos (`pytest`) cubren la lógica y la interfaz en modo
 sin pantalla. **Nada se ha verificado visualmente en una ventana real, en Windows, con un broker MQTT real,
-con la pasarela/pulsera reales ni con la app móvil real.** "Cumple" significa "implementado y probado con tests".
+con la pasarela/banda pectoral reales ni con la app móvil real.** "Cumple" significa "implementado y probado con tests".
 
 Leyenda: ✅ cumple · 🟡 cumple con matices · 📱 corresponde a la app móvil / pasarela (no aplica al escritorio)
 

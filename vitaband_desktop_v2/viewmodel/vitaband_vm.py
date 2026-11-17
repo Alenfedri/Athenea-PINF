@@ -37,10 +37,10 @@ from services.servicio_sync import EstadoSync, ResultadoSync
 logger = logging.getLogger(__name__)
 
 # Si pasa este tiempo sin ningún paquete de telemetría con el enlace "vivo",
-# se considera que la pulsera se ha apagado o ha perdido el BLE.
+# se considera que la banda pectoral se ha apagado o ha perdido el BLE.
 TIMEOUT_TELEMETRIA_MS = 2500
 
-# Estados en los que no hay enlace útil con la pulsera: cualquier telemetría
+# Estados en los que no hay enlace útil con la banda pectoral: cualquier telemetría
 # que aún esté en cola de Qt es "rezagada" y debe descartarse.
 _ESTADOS_SIN_ENLACE = (
     ConexionEstado.DESCONECTADO,
@@ -342,7 +342,7 @@ class VitaBandViewModel(QObject):
         estado_actual = self._state.conexionEstado
 
         # 0. Descartar paquetes rezagados sin enlace activo. Única excepción:
-        #    si el error lo provocó el watchdog por silencio y la pulsera
+        #    si el error lo provocó el watchdog por silencio y la banda pectoral
         #    vuelve a emitir, se recupera sola.
         if estado_actual in _ESTADOS_SIN_ENLACE:
             if (
@@ -398,7 +398,7 @@ class VitaBandViewModel(QObject):
 
     @Slot()
     def _on_silencio_telemetria(self) -> None:
-        """Vence el watchdog: la pulsera dejó de emitir sin avisar (apagada o sin BLE)."""
+        """Vence el watchdog: la banda pectoral dejó de emitir sin avisar (apagada o sin BLE)."""
         if self._state.conexionEstado not in _ESTADOS_CON_ENLACE:
             return
 

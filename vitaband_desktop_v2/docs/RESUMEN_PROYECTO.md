@@ -1,209 +1,234 @@
 # VitaBand Desktop: qué es y qué hace
 
-Este documento describe lo que la aplicación de escritorio hace hoy, según el código del repositorio.
-Lo que no está hecho, o depende de otra parte del sistema, se dice de forma expresa.
+Este documento describe la aplicación de escritorio tal y como está programada hoy. Lo que aún no
+está hecho o no se ha podido probar con el equipo real se dice de forma explícita en el apartado 5.
 
 ## 1. Qué es VitaBand y qué papel tiene esta aplicación
 
-VitaBand es un dispositivo de medición biométrica que se lleva en el pecho, sujeto con una correa
-(banda pectoral). Mide electrocardiograma (ECG), frecuencia cardíaca, frecuencia respiratoria,
-temperatura cutánea y nivel de actividad física.
+**VitaBand** es un dispositivo de medición biométrica que se lleva en el pecho, sujeto con una
+correa (banda pectoral). Mide electrocardiograma (ECG), frecuencia cardíaca (FC), frecuencia
+respiratoria (FR), temperatura cutánea y nivel de actividad física, y puede emitir un aviso
+experimental (por ejemplo, "FC elevada en reposo").
 
-El sistema tiene tres piezas:
+El sistema completo tiene tres piezas:
 
-- **La banda pectoral** y una **pasarela** que recibe sus datos y los publica por MQTT. La pasarela la
-  desarrolla otro compañero; en este repositorio solo existe un *mock* (simulación) hecho por él.
-- **La app móvil** (Qt/QML), de otro compañero. Según los requisitos, es la que se conecta a la banda,
-  registra actividades y guarda las mediciones del móvil.
-- **Esta aplicación de escritorio** (Python + PySide6), que hace dos cosas:
-  1. Muestra en tiempo real lo que publica la pasarela por MQTT y guarda una medición cada 10 segundos.
-  2. Importa los datos que el móvil le entrega en forma de archivo y permite consultarlos, analizarlos,
-     exportarlos y borrarlos.
+- **La banda pectoral**, que envía sus datos por Bluetooth Low Energy (BLE).
+- **La app móvil** (Qt/QML), que se conecta a la banda por BLE. Es la que, según la especificación,
+  registra actividades deportivas y guarda datos sin conexión. La desarrolla otro compañero.
+- **Esta aplicación de escritorio** (Python + PySide6), que hace dos cosas distintas:
+  1. **Monitorización en directo** de la banda a través de un broker MQTT y una pasarela que
+     traduce de BLE a MQTT. Hoy la pasarela es un simulador (mock) hecho por otro compañero.
+  2. **Historial**: guarda en una base de datos local lo que recibe en directo y lo que importa del
+     móvil, y permite consultarlo, exportarlo y borrarlo.
 
-Flujo de los datos:
+Flujo de los datos en directo:
 
 ```
-banda pectoral ──(BLE)──> pasarela ──(MQTT)──> escritorio ─┐
-                                                           ├─> base de datos SQLite local
-app móvil ──(archivo JSON en una carpeta)──> escritorio ───┘
+banda pectoral --BLE--> pasarela/mock --MQTT--> broker --MQTT--> VitaBand Desktop
 ```
 
-Todo se guarda en un único archivo SQLite en el propio ordenador (`vitaband_historial.db` por
-defecto). No hay servidor ni nube.
+Flujo de los datos del móvil (no pasan por MQTT):
+
+```
+app móvil --archivo JSON en una carpeta--> VitaBand Desktop (la importa)
+```
+
+Todo se guarda en local, en SQLite (`vitaband_historial.db`, en la carpeta desde la que se ejecuta el programa). No hay servidor
+propio ni nube.
 
 ## 2. Acceso y seguridad de cuentas
 
-Al abrir el programa aparece una ventana de acceso con tres pantallas.
+Sin sesión iniciada no se abre nada de lo anterior. Las cuentas son locales de este equipo.
 
-- **Crear cuenta:** nombre, correo, contraseña y repetición de la contraseña. La contraseña necesita al
-  menos 10 caracteres, una letra y un número. Se guarda solo un resumen (hash scrypt), nunca la contraseña.
-- **Inicio de sesión:** correo y contraseña. Después hace falta un **código de 6 dígitos** de una app
-  autenticadora (TOTP: Google Authenticator, Microsoft Authenticator, Authy…). La primera vez, la ventana
-  muestra una clave de configuración para añadirla a la app (se introduce a mano; no hay código QR).
-- **Bloqueo por intentos:** tras 5 fallos seguidos la cuenta se bloquea 5 minutos.
-
-Una vez dentro:
-
-- **Cerrar sesión** (botón arriba a la derecha) cierra la conexión MQTT y la base de datos y vuelve a
-  la ventana de acceso.
-- **Eliminar cuenta** (botón arriba a la derecha) pide dos confirmaciones: primero un aviso de lo que se
-  va a perder; después un cuadro donde hay que escribir `ELIMINAR` y la contraseña. Si la contraseña es
-  correcta, se borran en una sola operación la cuenta y todos sus datos (mediciones, actividades, ECG,
-  observaciones y estado de sincronización). Si es incorrecta, no se borra nada y el fallo cuenta para el
-  bloqueo por intentos. No se borran las copias que el usuario haya sacado fuera: CSV exportados y
-  archivos de la carpeta de intercambio.
-
-Cada usuario solo ve sus datos: todo lo guardado va asociado a su cuenta. Varias cuentas pueden compartir
-el mismo ordenador.
+- **Registro.** Pide nombre, correo, contraseña y repetirla. La contraseña debe tener al menos 10
+  caracteres, una letra y un número. No se pueden crear dos cuentas con el mismo correo. La
+  contraseña se guarda con un hash (scrypt), no en claro.
+- **Inicio de sesión en dos pasos.** Primero correo y contraseña; después, un código de 6 dígitos
+  de una app autenticadora (Google Authenticator, Microsoft Authenticator, Authy…). La primera vez
+  que se entra con una cuenta nueva, la pantalla muestra la clave de configuración para añadirla a
+  la app autenticadora (se escribe a mano con «Introducir clave de configuración»; la pantalla no
+  muestra un código QR).
+- **Bloqueo por intentos.** Con 5 fallos seguidos la cuenta se bloquea 5 minutos. El paso del
+  código tiene un tiempo máximo de 5 minutos.
+- **Aislamiento.** Cada medición pertenece al usuario que tenía la sesión abierta; un usuario no ve
+  los datos de otro aunque compartan equipo.
+- **Cerrar sesión.** Botón «Cerrar sesión» arriba a la derecha: corta la conexión MQTT, guarda lo
+  pendiente, cierra la base de datos y vuelve a la pantalla de acceso.
+- **Eliminar cuenta.** Botón «Eliminar cuenta» (ver apartado 3.5).
 
 ## 3. Recorrido por la interfaz
 
-La ventana principal tiene una barra superior, tres pestañas y una barra de estado.
+Al entrar se abre una ventana con una barra superior y tres pestañas. Abajo hay una barra de estado
+con el estado de la sincronización.
 
-**Barra superior:** estado de la conexión con la pasarela (Desconectado, Conectando, Calibrando,
-Conectado, Error de comunicación), botones *Conectar* y *Desconectar*, *Sincronizar ahora*,
-*Exportar historial (CSV)*, el nombre de usuario, *Eliminar cuenta* y *Cerrar sesión*.
+**Barra superior** (de izquierda a derecha): estado de la conexión, «Conectar», «Desconectar»,
+«Sincronizar ahora», «Exportar historial (CSV)», nombre del usuario, «Eliminar cuenta» y «Cerrar
+sesión».
 
-**Barra de estado (abajo):** estado de la sincronización con el móvil. El texto muestra el resumen y un
-tooltip detalla archivos sincronizados, pendientes y con error.
+La aplicación **no se conecta sola** a la banda: hay que pulsar «Conectar».
 
-### Pestaña «Tiempo real»
+### 3.1 Pestaña «Tiempo real»
 
-- Cuatro tarjetas: frecuencia cardíaca, frecuencia respiratoria, temperatura y nivel de actividad.
-- Un banner con el aviso que envía el dispositivo.
-- Una gráfica del ECG a 100 Hz con la ventana de los últimos 6 segundos.
-- Una casilla para ver el ECG **crudo** en lugar del filtrado; envía la orden a la pasarela por MQTT.
-- Durante los primeros 6 segundos tras conectar, el estado es *Calibrando* (la respiración necesita esa ventana).
+- Cuatro valores: FC, FR, temperatura y nivel de actividad (Baja/Reposo, Media o Intensa).
+- Una línea con el aviso experimental de la banda ("Sin avisos" si no hay).
+- Gráfica del ECG a 100 Hz. Muestra una ventana de los últimos segundos (6 por defecto, ajustable en
+  `settings.json`).
+- Casilla «Mostrar señal ECG cruda (sin filtro Butterworth)». Cambia entre la señal filtrada y la
+  cruda enviando una orden a la pasarela. Solo se puede usar con la conexión establecida.
+- Estados de conexión que se muestran: DESCONECTADO, CONECTANDO, CALIBRANDO (los primeros 6 s de
+  respiración, con los valores en espera), CONECTADO y ERROR_COMUNICACION.
+- Si no llegan datos durante 2,5 s, la aplicación pasa a ERROR_COMUNICACION y vacía los valores en
+  pantalla. Pasa lo mismo si la pasarela avisa de que ha perdido la banda.
 
-Cada 10 segundos, mientras el estado es *Conectado*, se guarda una **medición periódica** (frecuencia
-cardíaca, y respiración, temperatura y nivel de actividad si el valor es válido). Si el firmware envía una
-media de BPM, se guarda esa; si no, el valor instantáneo. El ECG se guarda aparte, en forma
-resumida (ver apartado 5). El ECG crudo no se guarda.
+**Qué se guarda de lo que se recibe en directo.** Mientras el estado es CONECTADO se guarda una
+medición periódica cada 10 s (ajustable) con FC, FR, temperatura y nivel de actividad. Si la
+pasarela envía la media de FC de ese intervalo, se guarda esa media; si no, el valor instantáneo. El
+ECG filtrado se guarda además como una envolvente de un segundo (mínimo y máximo por segundo), no
+la señal completa a 100 Hz. En modo ECG crudo no se guarda ECG.
 
-### Pestaña «Historial periódico»
+### 3.2 Pestaña «Historial periódico»
 
-Muestra las mediciones periódicas, tanto las guardadas por el escritorio como las importadas del móvil.
+Muestra las mediciones periódicas: las guardadas por el escritorio en directo y las importadas del
+móvil con etiqueta de periódico.
 
-- **Selector de periodo:** fechas Desde/Hasta y atajos *Hoy*, *7 días*, *30 días* y *Todo*.
-- **Variable:** frecuencia cardíaca, frecuencia respiratoria, temperatura cutánea o nivel de actividad.
-- **Resolución:** automática, sin agrupar, por minuto, por hora o por día. Con periodos largos conviene
-  agrupar; los grupos muestran media, mínimo y máximo.
+- **Selector de rango:** fechas "Desde" y "hasta" con calendario, atajos «Hoy», «7 días», «30 días» y
+  «Todo» (todo lo que hay guardado).
+- **Variable:** FC, FR, temperatura o nivel de actividad.
+- **Resolución:** Automática, Sin agrupar, Por minuto, Por hora o Por día. Con periodos largos la
+  automática agrupa para que la gráfica se pueda leer.
 - **Resumen:** número de registros, media, mínimo y máximo del periodo.
-- **Gráfica y tabla** con los mismos datos. Los **huecos** (cuando no hay datos durante un rato) se ven
-  sombreados en la gráfica y se indican en un aviso; no se rellenan ni se interpolan.
-- **Observaciones del periodo:** textos automáticos (ver más abajo).
-- **ECG histórico** con zoom (ver más abajo).
-- **Borrado:**
-  - *Eliminar seleccionadas*: borra las filas marcadas en la tabla (solo disponible con resolución «sin
-    agrupar»).
-  - *Eliminar periodo…*: borra todas las mediciones periódicas del rango elegido y dice cuántas son.
-  - Los dos piden confirmación y avisan de que no se puede deshacer. Si una medición también pertenece a
-    una actividad, se conserva dentro de esa actividad.
+- **Gráfica y tabla.** Si hay tramos sin datos, se ven como huecos (no se rellenan ni se
+  interpolan) y se listan las interrupciones. En la tabla agrupada, esos tramos aparecen como
+  «Sin datos».
+- **Observaciones del periodo:** texto automático (ver 3.4).
+- **ECG histórico:** gráfica compacta de la envolvente. Solo se dibuja si el rango elegido es de
+  7 días o menos; con más, avisa de que hay que acortarlo.
+- **Zoom del ECG:** en la vista general se arrastra un intervalo; debajo se ve ese tramo ampliado.
+  Botones «Acercar», «Alejar», «◀», «▶» y «Restablecer». El límite de la ampliación es la resolución
+  guardada: 1 segundo por intervalo.
 
-### Pestaña «Actividades»
+### 3.3 Pestaña «Actividades»
 
-Lista las actividades deportivas importadas desde el móvil: inicio, tipo, duración, número de mediciones,
-frecuencia cardíaca media y máxima. El escritorio **no** crea actividades; solo las recibe por sincronización.
-Al elegir una actividad se ve:
+Lista de actividades deportivas importadas del móvil. El escritorio no crea actividades: solo las
+recibe por sincronización.
 
-- una gráfica de la variable elegida durante la actividad,
-- su ECG con zoom,
-- una observación automática de la actividad,
-- el botón **Eliminar actividad** (con confirmación): borra la actividad, sus mediciones propias y su
-  observación. Las mediciones que también estaban en el historial periódico se conservan allí. El ECG
-  guardado de ese tramo **no** se borra con la actividad (se elimina cuando vence su plazo de conservación).
+- Selector de rango y lista con: inicio, tipo (si el móvil lo envía), duración, número de
+  mediciones, FC media y FC máxima.
+- Al elegir una actividad: título con duración, estadísticas, gráfica de la variable elegida
+  (con interrupciones marcadas), ECG de la actividad con el mismo zoom y la observación de la
+  actividad.
+- Botón «Eliminar actividad» (ver 3.5).
 
-### Zoom del ECG
+### 3.4 Observaciones automáticas
 
-El ECG histórico se dibuja en dos partes: una **vista general** del periodo, con un intervalo
-arrastrable, y debajo un **detalle** de ese intervalo. Los botones *Acercar*, *Alejar*, *◀*, *▶* y
-*Restablecer* mueven o cambian el tamaño del intervalo. El zoom llega hasta la resolución guardada (1
-segundo), así que no se puede ampliar hasta ver latidos individuales. El ECG histórico solo se consulta
-para periodos de hasta 7 días.
+Son textos orientativos generados con reglas sencillas, no un diagnóstico. Cada panel lleva el
+aviso: *"Observación orientativa de carácter informativo; no constituye un diagnóstico médico."*
 
-### Observaciones automáticas
+- **Diaria** (historial periódico): cuántos registros hay y en cuántas horas del día, las
+  interrupciones, FC y FR en reposo y temperatura frente a unos umbrales fijos, FC en actividad,
+  cambio respecto al día anterior y, si hay datos de varios días, patrones como "la FC en reposo
+  suele ser más alta por la tarde".
+- **Por actividad:** duración, FC (media, mínima, máxima), FR, cambio de temperatura, porcentaje del
+  tiempo en cada nivel de actividad, esfuerzo estimado (ligero, moderado o alto, respecto a la FC en
+  reposo de referencia) e interrupciones.
+- Se generan al iniciar sesión, tras cada sincronización y cada 60 minutos (ajustable).
+- Los umbrales (por ejemplo, FC en reposo por encima de 100 o por debajo de 45) están en el código
+  y **no están validados clínicamente**.
 
-Son textos orientativos, generados con reglas fijas, nunca un diagnóstico (cada texto lo advierte). Hay
-tres tipos:
+### 3.5 Exportar y borrar
 
-- **Diarias** sobre el historial periódico: valoran la frecuencia cardíaca, respiratoria y la temperatura en
-  reposo frente a unos umbrales (por ejemplo, FC en reposo por encima de 100 o por debajo de 45 lpm) y
-  mencionan las interrupciones.
-- **Patrones recurrentes**: por ejemplo, diferencias de frecuencia cardíaca entre franjas del día que se
-  repiten varios días.
-- **De actividad**: resumen de la actividad (duración, FC media y máxima, nivel de esfuerzo respecto a
-  la FC en reposo).
+**Exportar a CSV** («Exportar historial (CSV)»). Pide dónde guardar el archivo y exporta todas las
+mediciones del usuario. Columnas: `fecha;hora;bpm;rpm;temp_c;nivel_actividad;etiqueta`. Separador
+`;`, coma decimal y UTF-8 con BOM, pensado para abrirlo en Excel en español. El ECG no se exporta.
 
-Se generan al iniciar sesión, tras cada sincronización y cada hora (configurable). Los umbrales son
-orientativos y **no están validados clínicamente**.
+**Borrado de mediciones.** Todas las acciones piden confirmación y avisan de que no se puede
+deshacer.
 
-### Exportación a CSV
+- «Eliminar seleccionadas» (Historial periódico, solo en vista sin agrupar): borra las filas
+  elegidas.
+- «Eliminar periodo…»: borra todo el historial periódico del rango elegido y dice cuántos
+  registros son.
+- «Eliminar actividad»: borra la actividad, sus mediciones exclusivas, su ECG y su observación.
+- Una medición puede pertenecer a la vez al historial periódico y a una actividad. Si la borras
+  desde el historial periódico, se conserva en la actividad; y al revés.
 
-*Exportar historial (CSV)* guarda **todas** las mediciones del usuario (periódicas y de actividades) en un
-archivo con las columnas `fecha;hora;bpm;rpm;temp_c;nivel_actividad;etiqueta`. Va en UTF-8 con BOM,
-separado por `;` y con coma decimal, para que Excel en español lo abra bien. No incluye el ECG.
+**Conservación automática.** Al iniciar sesión se borra lo que supera el plazo: 30 días para el
+historial periódico y 365 para las actividades (ajustables en `settings.json`).
 
-### Conservación y borrado automático
-
-Al iniciar sesión se eliminan los registros vencidos: **30 días** para el historial periódico y **365
-días** para las actividades (valores configurables en `settings.json`). Una medición marcada como
-periódica y de actividad a la vez, cuando vence como periódica, no se borra mientras se conserve su
-actividad: pasa a ser solo de actividad. El ECG vencido se conserva si cae dentro de una actividad que
-aún se conserva.
+**Eliminar cuenta.** Doble confirmación: un aviso con el alcance y un cuadro donde hay que escribir
+`ELIMINAR` y la contraseña. Borra la cuenta y todos sus datos (mediciones, actividades, ECG,
+observaciones y estado de sincronización) en una sola operación, y vuelve a la pantalla de acceso. Una
+contraseña incorrecta cuenta como intento fallido. No se borran las copias que estén fuera de la
+aplicación: CSV exportados, archivos de la carpeta de intercambio o datos del móvil.
 
 ## 4. Cómo se comunica con la app móvil
 
-No hay conexión directa. El móvil deja un archivo `.json` en la **carpeta de intercambio** (`intercambio/`
-por defecto) y el escritorio lo importa. El archivo contiene el correo del usuario, sus actividades,
-mediciones y, opcionalmente, bloques de ECG resumido.
+No hay servidor ni conexión directa. El móvil deja un archivo `.json` en una **carpeta de
+intercambio** (`intercambio/`, relativa a la carpeta desde la que se ejecuta el programa; configurable) y el escritorio lo importa.
 
-- **Cuándo se importa:** al iniciar sesión, al pulsar *Sincronizar ahora* y automáticamente cada 60
-  segundos (configurable; 0 la desactiva).
-- **Todo o nada:** si un solo dato del archivo es inválido, se rechaza el archivo completo y no se
-  importa nada. El motivo se muestra en la barra de estado.
-- **Sin duplicados:** cada archivo se identifica por su contenido y cada medición/actividad por su `uid`.
-  El móvil puede reexportar todo su historial y lo ya importado no se repite.
-- **Estados:** `PENDIENTE`, `SINCRONIZADO` y `ERROR`. Los archivos con error se reintentan en cada
-  sincronización.
+- **Cuándo importa:** al iniciar sesión, al pulsar «Sincronizar ahora» y, mientras la aplicación
+  está abierta, cada 60 s (ajustable; 0 la desactiva).
+- **Qué lleva el archivo:** el correo del usuario, actividades, mediciones (con FC, FR, temperatura,
+  nivel de actividad y etiqueta periódica/actividad/ambas) y, opcionalmente, el ECG como mínimo y
+  máximo por segundo. El formato exacto está en `docs/contrato_sincronizacion.md`.
+- **Todo o nada:** si el archivo tiene un solo error, no se importa nada de él.
+- **Sin duplicados:** cada medición y actividad tiene un identificador propio. Si llega uno que ya
+  existe, se conserva el original. El móvil puede volver a exportar todo su historial sin duplicar
+  datos, siempre que mantenga los mismos identificadores.
 - **Varios usuarios:** los archivos de otro correo se ignoran.
+- **Estado:** la barra inferior indica cuántos archivos están sincronizados, pendientes o con error.
+  Los que dan error se reintentan en cada sincronización.
+- **Para probar sin el móvil:** `python tools/generar_paquete_demo.py --usuario tu@correo.com`
+  genera un archivo con datos sintéticos.
 
-El formato exacto está en `docs/contrato_sincronizacion.md`. Para probar sin móvil:
-`python tools/generar_paquete_demo.py --usuario tu@correo.com`, que crea un paquete con datos sintéticos.
-
-**Importante:** este formato lo ha definido el lado del escritorio. La app móvil todavía no lo genera. El
-desarrollador del móvil debe adoptarlo o acordar con el escritorio otro formato.
-
-Con la pasarela, el escritorio habla por MQTT (tópicos `vitaband/{id}/telemetry`, `/status` y
-`/control`), descrito en `docs/contrato_mqtt.md`.
+**Aviso importante:** este formato lo ha definido el lado del escritorio. **La app móvil todavía no
+lo genera.** Quien la desarrolle tiene que adaptarla a este contrato, o acordar otro y cambiar
+`docs/contrato_sincronizacion.md` y `domain/paquete_sync.py`.
 
 ## 5. Estado actual y limitaciones
 
-**Hecho y probado con tests automáticos** (332 tests, todos en verde, en modo sin pantalla): cuentas con
-verificación en dos pasos, grabación periódica, historial, actividades, ECG histórico con zoom,
-observaciones, importación de paquetes, exportación a CSV, borrado de mediciones/periodos/actividades,
-eliminación de cuenta, conservación y un flujo completo de extremo a extremo con datos de demostración.
+**Terminado y probado por software.** Cuentas y verificación en dos pasos, historial, actividades,
+zoom del ECG, observaciones, importación de paquetes, CSV y borrados. Hay 332 tests automáticos que
+pasan (lógica, interfaz sin pantalla y un recorrido completo: paquete de demo, sincronización,
+consultas, observaciones, CSV, borrado de una medición y borrado de la cuenta).
 
-**No verificado:**
+**No probado.**
 
-- Nunca se ha ejecutado con la **banda pectoral real** ni con la **pasarela real**; solo con el mock de
-  un compañero y con datos simulados.
-- No se ha probado con un **broker MQTT real** de forma continuada.
-- No se ha probado en **Windows**; los tests y el desarrollo se hicieron en Linux.
-- La interfaz solo se ha probado sin pantalla (tests); no se ha revisado visualmente en una ventana real.
-- No se ha probado con la **app móvil real**: la sincronización se ha probado solo con paquetes generados
-  por el script de demostración.
+- Nunca se ha usado con la **banda pectoral real**, ni con la pasarela real. Solo hay pruebas con
+  datos simulados.
+- No se ha probado con un **broker MQTT real** de principio a fin. Los tests sustituyen la conexión
+  MQTT por un simulador.
+- No se ha ejecutado en **Windows**. El desarrollo y las pruebas se hicieron en Linux, y la
+  interfaz solo se probó sin pantalla (modo offscreen); nadie la ha visto en una ventana real.
+- No se ha probado con la **app móvil real**, porque aún no genera el formato de intercambio.
 
-**Limitaciones conocidas:**
+**Depende de otras partes.**
 
-- Registrar actividades, buscar y conectar la banda por Bluetooth y el registro en segundo plano
-  corresponden al móvil; el escritorio no lo hace.
-- La sincronización es por carpeta, no automática por red; y es síncrona: con paquetes muy grandes la
-  ventana puede quedarse congelada unos segundos.
-- El ECG histórico se guarda solo como envolvente de 1 segundo (mínimo y máximo), no la señal completa
-  de 100 Hz.
-- Las observaciones son reglas sencillas, sin validación clínica.
-- Borrar una cuenta no elimina copias externas (CSV, archivos de intercambio, datos del móvil).
-- El estado «Calibrando» depende de que la pasarela publique `READY`; con una pasarela antigua que no
-  lo haga, la app se queda en «Calibrando».
+- Conectar con la banda por BLE, buscar dispositivos, registrar actividades, medir sin conexión y
+  elegir el tipo de deporte son tareas de la app móvil, no de esta.
+- La clave `media_bpm` de la telemetría es una suposición del escritorio (no figuraba en el código de la
+  pasarela). Si usa otro nombre, se cambia en `CLAVE_MEDIA_BPM` (`domain/interprete_biometrico.py`).
+- Los mensajes MQTT esperados están en `docs/contrato_mqtt.md`.
 
-La correspondencia con cada requisito (RF-01 a RF-50) está en `docs/cumplimiento_requisitos.md`.
+**Limitaciones conocidas.**
+
+- La sincronización se hace en el hilo de la interfaz: con paquetes muy grandes la ventana se queda
+  parada unos segundos.
+- El ECG histórico es solo una envolvente de 1 s. Sirve para ver la forma general y los tramos sin
+  señal, no para analizar latido a latido.
+- Las observaciones usan umbrales fijos sin validación clínica.
+- El escritorio no puede iniciar ni terminar actividades; solo las recibe del móvil.
+- La contraseña y el estado de las cuentas viven en la base de datos local. No hay recuperación
+  de contraseña ni de acceso si se pierde la app autenticadora.
+- Para qué requisito se cumple cada cosa, ver `docs/cumplimiento_requisitos.md`.
+
+## Cómo ejecutarlo
+
+```
+pip install -r requirements.txt
+python main.py        # desde la carpeta del proyecto, con settings.json al lado
+python -m pytest      # tests
+```
+
+Ajustes en `settings.json`: dirección del broker MQTT, `device_id`, intervalo de registro, días
+de conservación, carpeta e intervalo de intercambio e intervalo de observaciones.
