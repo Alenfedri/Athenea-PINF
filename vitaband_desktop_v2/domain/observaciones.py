@@ -152,8 +152,12 @@ def observacion_diaria(
     intervalo_s: float,
     fin_ts: int,
     umbrales: Umbrales = Umbrales(),
+    lineas_extra: Sequence[str] = (),
 ) -> Optional[list[str]]:
-    """Resumen de evolución de un día del historial periódico; None si no hay datos."""
+    """Resumen de evolución de un día del historial periódico; None si no hay datos.
+
+    ``lineas_extra`` (p. ej. la recuperación por HRV) se añade antes del descargo.
+    """
     if not mediciones:
         return None
 
@@ -244,6 +248,7 @@ def observacion_diaria(
     conjunto = dict(anteriores)
     conjunto[dia] = ms
     lineas.extend(detectar_patrones(conjunto, umbrales))
+    lineas.extend(lineas_extra)
 
     lineas.append(DESCARGO)
     return lineas

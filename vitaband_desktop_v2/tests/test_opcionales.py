@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from domain import ecg_historico as ecg
+from domain import hrv
 from services import totp
 from services.repositorio_cuentas import RepositorioCuentas
 from services.repositorio_historial import RepositorioHistorial, TABLAS_DE_USUARIO
@@ -337,6 +338,7 @@ class BaseCuentas(unittest.TestCase):
         h.guardar_medicion(120, dt(ts(9, 5)), uid=f"n{usuario_id}", etiqueta="ACTIVIDAD", actividad_id=a)
         h.guardar_ecg_segundos([ecg.SegundoEcg(ts(9, 0, i), 1, 2) for i in range(5)])
         h.guardar_observacion("DIARIA", AYER.isoformat(), "t", ts(0), ts(0) + 86400, int(time.time()))
+        h.guardar_hrv(hrv.ResultadoHrv(ts(8), 42.0, 70.0, 60))
         return h
 
     def filas(self, tabla, usuario_id):

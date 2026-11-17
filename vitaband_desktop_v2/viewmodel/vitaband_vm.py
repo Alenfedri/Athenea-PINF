@@ -9,7 +9,7 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import QObject, QTimer, Qt, Signal, Slot
 
-from domain import ecg_historico
+from domain import ecg_historico, hrv
 from domain.interprete_biometrico import (
     AVISO_NINGUNO,
     TEXTO_TEMP_SIN_DATOS,
@@ -19,7 +19,7 @@ from domain.interprete_biometrico import (
     formatear_temperatura,
     validar_media_bpm,
 )
-from domain.modelos import ETIQUETA_PERIODICO, NIVELES_VALIDOS
+from domain.modelos import ETIQUETA_PERIODICO, NIVEL_REPOSO, NIVELES_VALIDOS
 from domain.ui_state import ConexionEstado, VitaBandUiState
 from services.ajustes import (
     DIAS_ACTIVIDADES,
@@ -177,6 +177,7 @@ class VitaBandViewModel(QObject):
         self._media_edad = 0
         self._acum_ecg = ecg_historico.AcumuladorEcg()
         self._ecg_pendiente: list[ecg_historico.SegundoEcg] = []
+        self._acum_hrv = hrv.AcumuladorHrv()         # RMSSD en reposo, calculado en directo
 
         self._timer_registro = QTimer(self)
         self._timer_registro.setInterval(intervalo_registro_ms)
@@ -235,6 +236,7 @@ class VitaBandViewModel(QObject):
         self._ecg_buffer.clear()
         self._contador_muestras = 0
         self._volcar_ecg(cerrar_segundo=True)
+        self._acum_hrv.reiniciar()
         self._ultimo = None
         self._media_bpm = None
         self._media_edad = 0
@@ -365,6 +367,7 @@ class VitaBandViewModel(QObject):
         if math.isfinite(ecg):
             self._ecg_buffer.append(ecg)
             self._acumular_ecg(ecg)
+            self._acumular_hrv(ecg, cod_actividad)
 
         self._ultimo = _Muestra(bpm, rpm, temp_c, cod_actividad)
 
@@ -474,6 +477,19 @@ class VitaBandViewModel(QObject):
         self._ecg_pendiente.extend(self._acum_ecg.agregar(int(self._reloj()), valor))
         if len(self._ecg_pendiente) >= _MAX_ECG_PENDIENTE:
             self._volcar_ecg()
+
+    def _acumular_hrv(self, valor: float, nivel: int) -> None:
+        """Alimenta el cálculo de HRV solo con ECG filtrado, conectado y en reposo."""
+        if (self._repositorio is None or self._state.modoEcgCrudo
+                or self._state.conexionEstado != ConexionEstado.CONECTADO or nivel != NIVEL_REPOSO):
+            self._acum_hrv.reiniciar()
+            return
+        try:
+            resultado = self._acum_hrv.agregar(self._reloj(), valor)
+            if resultado is not None:
+                self._repositorio.guardar_hrv(resultado)
+        except Exception:
+            logger.exception("No se pudo calcular o guardar la HRV")
 
     def _volcar_ecg(self, cerrar_segundo: bool = False) -> None:
         if cerrar_segundo:
@@ -687,6 +703,7 @@ class VitaBandViewModel(QObject):
         else:
             self._ecg_pendiente.clear()
             self._acum_ecg.vaciar()
+        self._acum_hrv.reiniciar()
         if self._repositorio is not None:
             self._repositorio.cerrar()
             self._repositorio = None            # ya nada puede escribir tras el cierre

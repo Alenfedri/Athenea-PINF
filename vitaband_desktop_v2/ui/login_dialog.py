@@ -7,6 +7,7 @@ muestran los mensajes de error y se avanza de pantalla.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from services import totp
+from ui.qr_totp import imagen_qr
 from services.servicio_auth import (
     CodigoMfaInvalido,
     CredencialesInvalidas,
@@ -99,7 +101,7 @@ class LoginDialog(QDialog):
         lay.addStretch()
 
         self.btn_entrar.clicked.connect(self.accion_entrar)
-        self.login_password.returnPressed.connect(self.accion_entrar)
+        self.login_email.returnPressed.connect(self.login_password.setFocus)
         self.btn_ir_registro.clicked.connect(lambda: self._ir_a(PAG_REGISTRO))
         return pagina
 
@@ -146,7 +148,12 @@ class LoginDialog(QDialog):
         self.mfa_instrucciones.setWordWrap(True)
         lay.addWidget(self.mfa_instrucciones)
 
-        # Solo visible al activar el MFA de una cuenta nueva
+        # Solo visibles al activar el MFA de una cuenta nueva: QR y, debajo, la clave en texto
+        self.mfa_qr = QLabel()
+        self.mfa_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mfa_qr.setVisible(False)
+        lay.addWidget(self.mfa_qr)
+
         self.mfa_secreto = QPlainTextEdit()
         self.mfa_secreto.setReadOnly(True)
         self.mfa_secreto.setMaximumHeight(110)
@@ -173,7 +180,6 @@ class LoginDialog(QDialog):
         lay.addStretch()
 
         self.btn_verificar.clicked.connect(self.accion_verificar)
-        self.mfa_codigo.returnPressed.connect(self.accion_verificar)
         self.btn_cancelar_mfa.clicked.connect(self._cancelar_mfa)
         return pagina
 
@@ -198,21 +204,25 @@ class LoginDialog(QDialog):
 
         if desafio.requiere_activacion:
             self.mfa_instrucciones.setText(
-                "Añade VitaBand a tu app autenticadora (Google Authenticator, Microsoft "
-                "Authenticator, Authy…) usando «Introducir clave de configuración» con esta "
-                "clave, y escribe el código de 6 dígitos que genere."
+                "Escanea el código QR con tu app autenticadora (Google Authenticator, Microsoft "
+                "Authenticator, Authy…), o añade la clave a mano con «Introducir clave de "
+                "configuración», y escribe el código de 6 dígitos que genere."
             )
             self.mfa_secreto.setPlainText(
                 f"Clave: {totp.secreto_legible(desafio.secreto or '')}\n\n"
                 f"URI: {desafio.uri}"
             )
             self.mfa_secreto.setVisible(True)
+            self.mfa_qr.setPixmap(QPixmap.fromImage(imagen_qr(desafio.uri)))
+            self.mfa_qr.setVisible(True)
         else:
             self.mfa_instrucciones.setText(
                 "Introduce el código de 6 dígitos de tu app autenticadora."
             )
             self.mfa_secreto.clear()
             self.mfa_secreto.setVisible(False)
+            self.mfa_qr.clear()
+            self.mfa_qr.setVisible(False)
 
         self._ir_a(PAG_MFA)
         self.mfa_codigo.setFocus()
@@ -234,11 +244,10 @@ class LoginDialog(QDialog):
             desafio = self._auth.iniciar_sesion(
                 self.login_email.text(), self.login_password.text()
             )
-        except (CredencialesInvalidas, CuentaBloqueada) as exc:
-            self._error(self.login_error, str(exc))
-            return
         except ErrorAuth as exc:
             self._error(self.login_error, str(exc))
+            self.login_password.clear()          # el siguiente intento empieza de cero
+            self.login_password.setFocus()
             return
 
         self.login_password.clear()

@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Callable
 
+import statistics
+
+from domain import hrv
 from domain import observaciones as obs
 from services.repositorio_historial import AMBITO_PERIODICO, RepositorioHistorial
 
@@ -70,6 +73,10 @@ class ServicioObservaciones:
         for m in self._repo.mediciones_rango(ini, fin, AMBITO_PERIODICO):
             por_dia[m.instante.date()].append(m)
 
+        hrv_dia: dict[date, list[hrv.ResultadoHrv]] = defaultdict(list)
+        for v in self._repo.hrv_rango(ini, fin):
+            hrv_dia[datetime.fromtimestamp(v.ts).date()].append(v)
+
         cambios = 0
         dia = primer_dia
         while dia <= ultimo_dia:
@@ -78,7 +85,8 @@ class ServicioObservaciones:
                 anteriores = {d: por_dia[d] for k in range(1, DIAS_BASE + 1)
                               if (d := dia - timedelta(days=k)) in por_dia}
                 lineas = obs.observacion_diaria(
-                    dia, mediciones, anteriores, self._intervalo_s, ahora, self._umbrales)
+                    dia, mediciones, anteriores, self._intervalo_s, ahora, self._umbrales,
+                    self._lineas_hrv(dia, hrv_dia))
                 if lineas and self._repo.guardar_observacion(
                     "DIARIA", dia.isoformat(), "\n".join(lineas),
                     _ts_dia(dia), _ts_dia(dia + timedelta(days=1)), ahora,
@@ -86,6 +94,18 @@ class ServicioObservaciones:
                     cambios += 1
             dia += timedelta(days=1)
         return cambios
+
+    @staticmethod
+    def _lineas_hrv(dia: date, hrv_dia: dict) -> list[str]:
+        """Recuperación del día; la referencia propia es la media de los días previos con HRV."""
+        previos = []
+        for k in range(1, DIAS_BASE + 1):
+            vs = hrv_dia.get(dia - timedelta(days=k))
+            if vs and len(vs) >= hrv.UmbralesHrv.min_ventanas:
+                primeras = sorted(vs, key=lambda v: v.ts)[:hrv.UmbralesHrv.ventanas_dia]
+                previos.append(statistics.median(v.rmssd_ms for v in primeras))
+        base = statistics.fmean(previos) if previos else None
+        return hrv.lineas_recuperacion(hrv_dia.get(dia, []), base)
 
     def _actualizar_actividades(self, ahora: int) -> int:
         cambios = 0

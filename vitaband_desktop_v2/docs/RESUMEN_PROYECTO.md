@@ -46,8 +46,8 @@ Sin sesión iniciada no se abre nada de lo anterior. Las cuentas son locales de 
 - **Inicio de sesión en dos pasos.** Primero correo y contraseña; después, un código de 6 dígitos
   de una app autenticadora (Google Authenticator, Microsoft Authenticator, Authy…). La primera vez
   que se entra con una cuenta nueva, la pantalla muestra la clave de configuración para añadirla a
-  la app autenticadora (se escribe a mano con «Introducir clave de configuración»; la pantalla no
-  muestra un código QR).
+  la app autenticadora: se puede escanear el código QR o escribir la clave a mano («Introducir clave de
+  configuración»). Con las cuentas que ya tienen la verificación activada no se vuelve a mostrar.
 - **Bloqueo por intentos.** Con 5 fallos seguidos la cuenta se bloquea 5 minutos. El paso del
   código tiene un tiempo máximo de 5 minutos.
 - **Aislamiento.** Cada medición pertenece al usuario que tenía la sesión abierta; un usuario no ve
@@ -131,6 +131,17 @@ aviso: *"Observación orientativa de carácter informativo; no constituye un dia
 - **Por actividad:** duración, FC (media, mínima, máxima), FR, cambio de temperatura, porcentaje del
   tiempo en cada nivel de actividad, esfuerzo estimado (ligero, moderado o alto, respecto a la FC en
   reposo de referencia) e interrupciones.
+- **Recuperación (HRV):** línea añadida a la observación diaria. Se calcula en directo con el ECG a
+  100 Hz mientras la banda está conectada, en modo filtrado y con nivel de actividad en reposo: cada
+  minuto válido se detectan los picos R, se obtienen los intervalos R-R y se calcula el RMSSD en ms.
+  Se descartan los minutos con ruido, con pocos latidos o con intervalos fuera de 300–2000 ms. De
+  cada día se usa la mediana de los 5 primeros minutos válidos (mínimo 3) y se muestra como
+  «Recuperación óptima» (≥ 50 ms), «Estado equilibrado» (20–50 ms) o «Estrés fisiológico / Fatiga»
+  (< 20 ms), con la diferencia respecto a la media de los días anteriores si la hay. Los umbrales son
+  generales y no están validados; la HRV cambia mucho con la edad y entre personas. Solo se guarda el
+  valor de cada minuto (tabla `hrv_reposo`), no la señal; se borra con la purga, con el borrado de
+  mediciones de ese periodo y al eliminar la cuenta. No se calcula con el ECG histórico ni con los
+  datos importados del móvil (no contienen los latidos).
 - Se generan al iniciar sesión, tras cada sincronización y cada 60 minutos (ajustable).
 - Los umbrales (por ejemplo, FC en reposo por encima de 100 o por debajo de 45) están en el código
   y **no están validados clínicamente**.
@@ -188,7 +199,7 @@ lo genera.** Quien la desarrolle tiene que adaptarla a este contrato, o acordar 
 ## 5. Estado actual y limitaciones
 
 **Terminado y probado por software.** Cuentas y verificación en dos pasos, historial, actividades,
-zoom del ECG, observaciones, importación de paquetes, CSV y borrados. Hay 332 tests automáticos que
+zoom del ECG, observaciones, importación de paquetes, CSV y borrados. Hay 389 tests automáticos que
 pasan (lógica, interfaz sin pantalla y un recorrido completo: paquete de demo, sincronización,
 consultas, observaciones, CSV, borrado de una medición y borrado de la cuenta).
 
@@ -214,6 +225,9 @@ consultas, observaciones, CSV, borrado de una medición y borrado de la cuenta).
 
 - La sincronización se hace en el hilo de la interfaz: con paquetes muy grandes la ventana se queda
   parada unos segundos.
+- La HRV solo existe de lo que la aplicación ha recibido en directo en reposo; si no se usa
+  «Conectar», o la banda no está en reposo, no hay datos y la línea de recuperación no aparece. Nunca se ha
+  contrastado con una banda real (el detector se ha probado con ECG sintético).
 - El ECG histórico es solo una envolvente de 1 s. Sirve para ver la forma general y los tramos sin
   señal, no para analizar latido a latido.
 - Las observaciones usan umbrales fijos sin validación clínica.

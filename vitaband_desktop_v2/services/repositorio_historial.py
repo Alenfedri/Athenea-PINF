@@ -26,6 +26,7 @@ from datetime import datetime
 from typing import Iterable, Optional, Sequence
 
 from domain import ecg_historico as ecg
+from domain import hrv
 from domain.modelos import (
     ETIQUETA_ACTIVIDAD,
     ETIQUETA_AMBOS,
@@ -44,7 +45,7 @@ AMBITO_ACTIVIDAD = "actividad"
 
 # Tablas con datos de un usuario (todas llevan ``usuario_id``). RepositorioCuentas la usa
 # para no dejar datos personales huérfanos al eliminar una cuenta (RF-39).
-TABLAS_DE_USUARIO = ("mediciones", "actividades", "ecg_bloques", "observaciones", "sync_archivos")
+TABLAS_DE_USUARIO = ("mediciones", "actividades", "ecg_bloques", "observaciones", "sync_archivos", "hrv_reposo")
 _LOTE = 500                                    # ids por sentencia SQL (límite de variables de SQLite)
 
 
@@ -81,6 +82,16 @@ CREATE TABLE IF NOT EXISTS ecg_bloques (
     minuto      INTEGER NOT NULL,                       -- ts // 60
     datos       BLOB    NOT NULL,                       -- 60 pares min/max int16
     PRIMARY KEY (usuario_id, minuto)
+);
+
+-- HRV (RMSSD) de ventanas de 1 min en reposo, calculada en directo (no se guarda la señal)
+CREATE TABLE IF NOT EXISTS hrv_reposo (
+    usuario_id  INTEGER NOT NULL,
+    ts          INTEGER NOT NULL,                       -- inicio de la ventana (segundos Unix)
+    rmssd_ms    REAL    NOT NULL,
+    fc_media    REAL    NOT NULL,
+    latidos     INTEGER NOT NULL,
+    PRIMARY KEY (usuario_id, ts)
 );
 
 CREATE TABLE IF NOT EXISTS observaciones (
@@ -322,6 +333,20 @@ class RepositorioHistorial:
     # OBSERVACIONES (RF-24, 29, 49)
     # ==================================================================
 
+    def guardar_hrv(self, r: hrv.ResultadoHrv) -> None:
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO hrv_reposo (usuario_id, ts, rmssd_ms, fc_media, latidos) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (self._usuario_id, r.ts, r.rmssd_ms, r.fc_media, r.latidos))
+
+    def hrv_rango(self, desde_ts: int, hasta_ts: int) -> list[hrv.ResultadoHrv]:
+        filas = self._conn.execute(
+            "SELECT ts, rmssd_ms, fc_media, latidos FROM hrv_reposo "
+            "WHERE usuario_id = ? AND ts >= ? AND ts < ? ORDER BY ts",
+            (self._usuario_id, int(desde_ts), int(hasta_ts))).fetchall()
+        return [hrv.ResultadoHrv(f["ts"], f["rmssd_ms"], f["fc_media"], f["latidos"]) for f in filas]
+
     def guardar_observacion(
         self,
         tipo: str,
@@ -510,6 +535,9 @@ class RepositorioHistorial:
                 "UPDATE mediciones SET etiqueta = 'ACTIVIDAD' "
                 "WHERE usuario_id = ? AND etiqueta = 'AMBOS' AND ts < ?", (u, corte_per))
 
+            # 2b. HRV en reposo vencida (misma caducidad que el historial periódico)
+            self._conn.execute("DELETE FROM hrv_reposo WHERE usuario_id = ? AND ts < ?", (u, corte_per))
+
             # 3. ECG vencido que no cae dentro de una actividad conservada
             bloques = self._conn.execute(
                 "DELETE FROM ecg_bloques WHERE usuario_id = ? AND (minuto * 60 + 59) < ? "
@@ -567,6 +595,12 @@ class RepositorioHistorial:
             "SELECT 1 FROM mediciones m WHERE m.usuario_id = observaciones.usuario_id "
             "AND m.etiqueta IN ('PERIODICO','AMBOS') "
             "AND m.ts >= observaciones.periodo_inicio AND m.ts < observaciones.periodo_fin)",
+            (self._usuario_id,))
+        # La HRV de una ventana cuyas mediciones se han borrado tampoco debe quedar
+        self._conn.execute(
+            "DELETE FROM hrv_reposo WHERE usuario_id = ? AND NOT EXISTS ("
+            "SELECT 1 FROM mediciones m WHERE m.usuario_id = hrv_reposo.usuario_id "
+            "AND m.etiqueta IN ('PERIODICO','AMBOS') AND m.ts >= hrv_reposo.ts AND m.ts < hrv_reposo.ts + 70)",
             (self._usuario_id,))
 
     @staticmethod
