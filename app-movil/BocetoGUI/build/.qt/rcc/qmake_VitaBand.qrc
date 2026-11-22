@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/VitaBand">
-    <file alias="qmldir">C:/Users/Propietario/Desktop/VITABAND/build/VitaBand/qmldir</file>
-  </qresource>
-</RCC>
-
