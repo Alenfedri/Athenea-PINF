@@ -13,6 +13,7 @@ from typing import Optional
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -37,6 +38,8 @@ from ui.tarjetas_semanales import PanelTarjetasSemanales
 from ui.grafica_serie import GraficaSerie
 from ui.panel_ecg_zoom import PanelEcgZoom
 from ui.panel_observaciones import PanelObservaciones
+from ui.panel_vo2 import PanelVo2
+from services import disciplinas as disc
 from ui.selector_rango import SelectorRango
 from viewmodel.vitaband_vm import VitaBandViewModel
 
@@ -95,6 +98,21 @@ class VistaHistorialPeriodico(QWidget):
         self.constancia = PanelConstancia()                      # mapa de calor de 12 semanas
         self.constancia.objetivo_cambiado.connect(self._on_objetivo)
         capa.addWidget(self.constancia)
+        self.panel_vo2 = PanelVo2()                              # VO2máx (Uth) y edad cardiovascular
+        capa.addWidget(self.panel_vo2)
+        fila_disc = QHBoxLayout()
+        fila_disc.addWidget(QLabel("Disciplina"))
+        self.combo_disciplina = QComboBox()
+        self.combo_disciplina.addItem("Todas", None)
+        for dname in disc.DISCIPLINAS:
+            self.combo_disciplina.addItem(dname, dname)
+        self.combo_disciplina.currentIndexChanged.connect(self._mostrar_records)
+        self.lbl_records = QLabel()
+        self.lbl_records.setWordWrap(True)
+        self.lbl_records.setStyleSheet("font-weight: bold; color: #b7950b;")
+        fila_disc.addWidget(self.combo_disciplina)
+        fila_disc.addWidget(self.lbl_records, 1)
+        capa.addLayout(fila_disc)
 
         self.selector = SelectorRango(rango_disponible=self.vm.rango_disponible)
         capa.addWidget(self.selector)
@@ -162,6 +180,9 @@ class VistaHistorialPeriodico(QWidget):
             if c["perfil"].completo else
             "Calorías esta semana: N/D (indica edad y sexo en «Perfil fisiológico»)")
 
+        self.panel_vo2.mostrar(self.vm.estimacion_vo2(), self.vm.evolucion_vo2())
+        self._mostrar_records()
+
         serie = self.vm.serie_historica(variable, desde, hasta, self.selector.resolucion())
         if serie is None:
             self.grafica.limpiar()
@@ -179,6 +200,18 @@ class VistaHistorialPeriodico(QWidget):
         self.grafica.mostrar_marcadores(self.vm.marcadores(desde, hasta))
         self.observaciones.mostrar(self.vm.observaciones_periodo(desde, hasta))
         self._actualizar_ecg(desde, hasta)
+
+    def _mostrar_records(self, *_args) -> None:
+        filtro = self.combo_disciplina.currentData()
+        etiquetas, prs = self.vm.disciplinas(), self.vm.records_personales()
+        actividades = {r.actividad.id: r.actividad for r in self.vm.actividades(0, 4_102_444_800)}
+        lineas = []
+        for aid, textos in prs.items():
+            if (filtro is None or etiquetas.get(aid) == filtro) and aid in actividades:
+                lineas.append(f"🏆 {fecha_hora(actividades[aid].inicio_ts)}: " + " · ".join(textos))
+        self.lbl_records.setText("\n".join(lineas) if lineas else (
+            "Sin récords personales todavía (hacen falta ≥ 2 sesiones de la misma disciplina; "
+            "etiquétalas en «Actividades»)."))
 
     @Slot(int)
     def _on_objetivo(self, minutos: int) -> None:

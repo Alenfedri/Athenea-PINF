@@ -74,17 +74,26 @@ class PanelComparador(QWidget):
         self.lbl_mensaje = QLabel()
         self.lbl_mensaje.setWordWrap(True)
         self.lbl_mensaje.setStyleSheet("font-size: 15px; font-weight: bold;")
+        self.lbl_aviso = QLabel()
+        self.lbl_aviso.setWordWrap(True)
+        self.lbl_aviso.setStyleSheet("color: #7a4b00; background:#ffe8b0; padding: 4px;")
+        self.lbl_aviso.setVisible(False)
         self.lbl_resumen = QLabel()
         self.lbl_resumen.setTextFormat(Qt.TextFormat.RichText)
         self.lbl_resumen.setWordWrap(True)
         self.grafica_bpm = _GraficaMinutos("Pulso (BPM)")
         self.grafica_rpm = _GraficaMinutos("Respiración (RPM)")
         self.grafica_rpm.setXLink(self.grafica_bpm)
-        for w, e in ((self.lbl_mensaje, 0), (self.lbl_resumen, 0), (self.grafica_bpm, 1), (self.grafica_rpm, 1)):
+        for w, e in ((self.lbl_mensaje, 0), (self.lbl_aviso, 0), (self.lbl_resumen, 0), (self.grafica_bpm, 1), (self.grafica_rpm, 1)):
             capa.addWidget(w, stretch=e)
         self.mostrar_mensaje("")
 
+    def mostrar_aviso(self, texto: Optional[str]) -> None:
+        self.lbl_aviso.setText(texto or "")
+        self.lbl_aviso.setVisible(bool(texto))
+
     def mostrar_mensaje(self, texto: str) -> None:
+        self.mostrar_aviso(None)
         self.lbl_mensaje.setText(texto)
         self.lbl_mensaje.setVisible(bool(texto))
         self.lbl_resumen.setText("")

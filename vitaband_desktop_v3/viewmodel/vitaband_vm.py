@@ -32,6 +32,9 @@ from services.ajustes import (
 from services.consultas_historial import ConsultasHistorial
 from services import backup_db, constancia, exportar_tcx as _tcx, metricas_avanzadas as metricas
 from services import calculos_fisiologicos as calc
+from services import anonimizar as anonimizar_mod, coherencia, disciplinas as disc, poincare, vo2max
+from services.estres_escritorio import DetectorEstres
+from services.ratio_pulso_resp import MonitorRatio
 from services.exportacion_csv import exportar_historial_csv
 from services.repositorio_historial import ResultadoPurga
 from services.servicio_observaciones import ResultadoObservaciones, ServicioObservaciones
@@ -126,6 +129,7 @@ class VitaBandViewModel(QObject):
 
     media_bpm_recibida = Signal(float)
     vuelta_marcada = Signal(int)
+    aviso_estres = Signal(str)                  # Modo Escritorio: texto de la pausa activa sugerida
 
     enlace_actualizado = Signal(ConexionEstado)
 
@@ -186,6 +190,12 @@ class VitaBandViewModel(QObject):
         self.sesion_directo = calc.SesionDirecto()   # tiempo efectivo y auto-pausa por retirada de banda
         self._captura_ecg: Optional[list] = None      # test ortostático: (t, valor)
         self._acum_hrv = hrv.AcumuladorHrv()         # RMSSD en reposo, calculado en directo
+        self._acum_rr = poincare.AcumuladorRr()      # R-R de cada minuto (cualquier nivel) para Poincaré
+        self.monitor_ratio = MonitorRatio()
+        self.modo_escritorio = False
+        self.detector_estres = DetectorEstres()
+        self._nivel_reposo = False
+        self._captura_coh: Optional[dict] = None
 
         self._timer_registro = QTimer(self)
         self._timer_registro.setInterval(intervalo_registro_ms)
@@ -243,9 +253,18 @@ class VitaBandViewModel(QObject):
                 return v if v > 0 else None
             except (ValueError, IndexError, AttributeError):
                 return None
-        self.sesion_directo.actualizar(
-            st.conexionEstado == ConexionEstado.CONECTADO, st.calidadContacto != CalidadContacto.SIN_SENAL,
-            num(st.bpmTexto), num(st.rpmTexto), self._reloj())
+        ahora, bpm, rpm = self._reloj(), num(st.bpmTexto), num(st.rpmTexto)
+        conectado = st.conexionEstado == ConexionEstado.CONECTADO
+        self.sesion_directo.actualizar(conectado, st.calidadContacto != CalidadContacto.SIN_SENAL, bpm, rpm, ahora)
+        self.monitor_ratio.actualizar(ahora, bpm if conectado else None, rpm if conectado else None)
+        if self.modo_escritorio and self.detector_estres.actualizar(
+                ahora, conectado and self._nivel_reposo, None, rpm):
+            self.aviso_estres.emit(self._texto_estres())
+        c = self._captura_coh
+        if c is not None and conectado:
+            c["bpm"].append((ahora - c["t0"], bpm or 0.0))
+            if rpm:
+                c["rpm"].append(rpm)
 
     def _limpiar_datos(self) -> dict:
         """Vacía buffers y devuelve los campos de estado "sin datos".
@@ -394,6 +413,7 @@ class VitaBandViewModel(QObject):
                 self._captura_ecg.append((self._reloj(), ecg))
             self._acumular_ecg(ecg)
             self._acumular_hrv(ecg, cod_actividad)
+            self._acumular_rr(ecg)
 
         self._ultimo = _Muestra(bpm, rpm, temp_c, cod_actividad)
 
@@ -512,8 +532,22 @@ class VitaBandViewModel(QObject):
         if len(self._ecg_pendiente) >= _MAX_ECG_PENDIENTE:
             self._volcar_ecg()
 
+    def _acumular_rr(self, valor: float) -> None:
+        """R-R de cada minuto de ECG filtrado y conectado, a cualquier nivel de actividad."""
+        if (self._repositorio is None or self._state.modoEcgCrudo
+                or self._state.conexionEstado != ConexionEstado.CONECTADO):
+            self._acum_rr.reiniciar()
+            return
+        try:
+            ventana = self._acum_rr.agregar(self._reloj(), valor)
+            if ventana is not None:
+                self._repositorio.guardar_rr(*ventana)
+        except Exception:
+            logger.exception("No se pudieron guardar los intervalos R-R")
+
     def _acumular_hrv(self, valor: float, nivel: int) -> None:
         """Alimenta el cálculo de HRV solo con ECG filtrado, conectado y en reposo."""
+        self._nivel_reposo = nivel == NIVEL_REPOSO
         if (self._repositorio is None or self._state.modoEcgCrudo
                 or self._state.conexionEstado != ConexionEstado.CONECTADO or nivel != NIVEL_REPOSO):
             self._acum_hrv.reiniciar()
@@ -522,6 +556,9 @@ class VitaBandViewModel(QObject):
             resultado = self._acum_hrv.agregar(self._reloj(), valor)
             if resultado is not None:
                 self._repositorio.guardar_hrv(resultado)
+                if self.modo_escritorio and self.detector_estres.actualizar(
+                        self._reloj(), True, resultado.rmssd_ms, None):
+                    self.aviso_estres.emit(self._texto_estres())
         except Exception:
             logger.exception("No se pudo calcular o guardar la HRV")
 
@@ -746,6 +783,7 @@ class VitaBandViewModel(QObject):
         desde_ts: Optional[int] = None,
         hasta_ts: Optional[int] = None,
         ambito: Optional[str] = None,
+        sujeto: Optional[str] = None,
     ) -> int:
         """Exporta mediciones del usuario a CSV (RF-19). Sin filtros, exporta todas.
 
@@ -761,7 +799,7 @@ class VitaBandViewModel(QObject):
                 _TS_MAXIMO if hasta_ts is None else hasta_ts,
                 ambito,
             )
-        return exportar_historial_csv(mediciones, ruta)
+        return exportar_historial_csv(mediciones, ruta, sujeto)
 
     # --- Vueltas, ortostático, perfil, kcal, RPE y constancia ---
 
@@ -807,6 +845,64 @@ class VitaBandViewModel(QObject):
         self._repositorio_requerido().guardar_perfil(perfil.edad, perfil.sexo, perfil.peso_kg,
                                                      perfil.objetivo_semanal_min)
         self.historial_actualizado.emit()
+
+    # --- Coherencia, Poincaré, VO2máx, disciplinas, ratio y Modo Escritorio ---
+
+    def iniciar_coherencia(self) -> None:
+        self._captura_coh = {"t0": self._reloj(), "bpm": [], "rpm": []}
+
+    def detener_coherencia(self, rpm_guia: float = coherencia.RPM_GUIA) -> coherencia.ResultadoCoherencia:
+        c, self._captura_coh = self._captura_coh, None
+        if c is None:
+            return coherencia.resultado([], [], 0.0, rpm_guia)
+        return coherencia.resultado(c["bpm"], c["rpm"], self._reloj() - c["t0"], rpm_guia)
+
+    def _texto_estres(self) -> str:
+        from services.estres_escritorio import TEXTO_AVISO
+        return TEXTO_AVISO
+
+    def configurar_modo_escritorio(self, activo: bool, ventana_min: float = 20) -> None:
+        self.modo_escritorio = bool(activo)
+        self.detector_estres.ventana_min = max(1.0, float(ventana_min))
+        self.detector_estres.reiniciar()
+
+    def ratio_directo(self) -> tuple[Optional[float], bool]:
+        return self.monitor_ratio.ratio, self.monitor_ratio.alerta
+
+    def poincare(self, desde_ts: int, hasta_ts: int) -> poincare.Poincare:
+        ventanas = [] if self._repositorio is None else self._repositorio.rr_rango(desde_ts - 60, hasta_ts)
+        return poincare.calcular_poincare(ventanas)
+
+    def _hoy(self):
+        return datetime.fromtimestamp(self._reloj()).date()
+
+    def estimacion_vo2(self):
+        if self._repositorio is None:
+            return None
+        ahora = int(self._reloj())
+        reposo = vo2max.fc_reposo(self._repositorio.mediciones_rango(ahora - 30 * 86400, ahora + 1))
+        obs = vo2max.fc_max_observada(
+            self._repositorio.mediciones_rango(ahora - vo2max.VENTANA_FCMAX_DIAS * 86400, ahora + 1))
+        return vo2max.estimar(reposo, obs, self.perfil())
+
+    def evolucion_vo2(self, meses: int = 6):
+        if self._repositorio is None:
+            return []
+        return vo2max.evolucion_mensual(self._repositorio, self.perfil(), self._hoy(), meses)
+
+    def guardar_disciplina(self, actividad_id: int, disciplina: Optional[str]) -> None:
+        if disciplina not in (None, "") and disciplina not in disc.DISCIPLINAS:
+            raise ValueError(f"Disciplina no válida: {disciplina}")
+        self._repositorio_requerido().guardar_disciplina(actividad_id, disciplina)
+        self.historial_actualizado.emit()
+
+    def disciplinas(self) -> dict[int, str]:
+        return {} if self._repositorio is None else self._repositorio.disciplinas()
+
+    def records_personales(self, desde_ts: int = 0, hasta_ts: int = _TS_MAXIMO) -> dict[int, list[str]]:
+        if self._repositorio is None:
+            return {}
+        return disc.records_personales(disc.resumenes(self._repositorio, desde_ts, hasta_ts))
 
     def kcal_actividad(self, detalle) -> Optional[float]:
         return calc.kcal_actividad(detalle.mediciones, self.perfil())
@@ -880,11 +976,16 @@ class VitaBandViewModel(QObject):
         self.observaciones_actualizadas.emit()
         return bak
 
-    def exportar_pdf(self, ruta: str, desde_ts: int, hasta_ts: int, nombre: str = "") -> str:
+    def exportar_pdf(self, ruta: str, desde_ts: int, hasta_ts: int, nombre: str = "", correo: str = "",
+                     anonimizar: bool = False) -> str:
         """Informe biométrico en PDF del rango [desde_ts, hasta_ts). Devuelve la ruta escrita."""
         from services.exportar_pdf import PerfilInforme, generar_informe_pdf
+        anonimizar_id = anonimizar_mod.seudonimo(correo, nombre)
+        correo_pdf = "oculto (datos anonimizados)"
         return generar_informe_pdf(
-            ruta, self._repositorio_requerido(), desde_ts, hasta_ts, PerfilInforme(nombre=nombre))
+            ruta, self._repositorio_requerido(), desde_ts, hasta_ts,
+            PerfilInforme(nombre=anonimizar_id, correo=correo_pdf) if anonimizar else
+            PerfilInforme(nombre=nombre, correo=correo or None))
 
     # --- Utilidades ---
 

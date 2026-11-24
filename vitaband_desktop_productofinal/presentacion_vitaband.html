@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VitaBand · El Lenguaje Silencioso del Corazón</title>
+<style>
+:root{--em:#10B981;--em2:#34d399;--obs:#07100D;--pine:#132A23;--tx:#E7F5EF;--mut:#8fb8a8;--red:#f87171;--amb:#f59e0b}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden;font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--tx)}
+#stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100vw,177.78vh);height:min(56.25vw,100vh);background:linear-gradient(160deg,var(--obs),var(--pine));overflow:hidden;font-size:16px;user-select:none}
+#stage.idle{cursor:none}
+.scene{position:absolute;inset:0;opacity:0;transition:opacity .9s ease;pointer-events:none}
+.scene.active{opacity:1}
+.scene>svg{position:absolute;inset:0;width:100%;height:100%}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.7) 100%);z-index:5}
+.glass,.card{background:rgba(22,44,37,.46);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(38,75,63,.95);border-radius:1.1em;box-shadow:0 .6em 2em rgba(0,0,0,.35)}
+.card{position:absolute;padding:.9em 1.1em;font-size:1em}
+.card.red{border-color:rgba(239,68,68,.5);background:rgba(70,20,24,.42)}
+.card h4{font-size:.66em;letter-spacing:.16em;text-transform:uppercase;color:#7fd8b6;font-weight:600;margin-bottom:.4em}
+.card.red h4{color:#fca5a5}
+.card p{font-size:.92em;line-height:1.35;color:#cfe8dd}
+.card small{font-size:.74em;color:var(--mut)}
+.big{font-size:3em;font-weight:700;color:var(--em);line-height:1.05}
+.big.r{color:var(--red)}
+.pill{display:inline-block;font-size:.72em;padding:.25em .8em;border-radius:2em;border:1px solid rgba(38,75,63,.95);background:rgba(16,185,129,.14);color:#9bf0cf;margin:.2em .3em 0 0}
+.pill.am{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.5);color:#fcd34d}
+[data-at]{opacity:0;transform:translateY(.7em);transition:opacity .7s ease,transform .7s ease}
+[data-at].on{opacity:1;transform:none}
+svg [data-at],svg [data-at].on{transform:none}
+.tag{position:absolute;font-size:.7em;padding:.25em .8em;border-radius:2em;background:rgba(7,16,13,.6);border:1px solid rgba(38,75,63,.95);white-space:nowrap}
+/* HUD */
+#hud{position:absolute;left:3.2%;top:4%;z-index:6}
+#act{font-size:.7em;letter-spacing:.22em;color:var(--em);font-weight:700}
+#scn{font-size:1.25em;font-weight:600;margin-top:.2em}
+#scn small{font-size:.6em;color:var(--mut);letter-spacing:.1em;margin-left:.6em}
+#bpm{position:absolute;right:3.2%;top:3.6%;z-index:6;display:flex;align-items:center;gap:.7em;padding:.5em 1.1em;transition:border-color .5s}
+#bpm svg{width:1.8em;height:1.8em}
+#bpmN{font-size:2.3em;font-weight:700;color:var(--em);line-height:1;min-width:1.7em;text-align:right;transition:color .5s}
+#bpmL{font-size:.62em;letter-spacing:.1em;color:var(--mut);max-width:9em;line-height:1.3}
+#stage.warn #bpm{border-color:rgba(239,68,68,.6)}#stage.warn #bpmN{color:var(--red)}
+.beat{transform-box:fill-box;transform-origin:center;transform:scale(calc(1 + var(--p,0)*.3))}
+/* ECG */
+#ecg{position:absolute;left:50%;transform:translateX(-50%);bottom:17.2%;width:58%;height:14.6%;z-index:6;padding:.35em .7em .2em}
+#ecg .lb{display:flex;justify-content:space-between;font-size:.58em;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
+#ecg canvas{width:100%;height:calc(100% - 1.3em);display:block}
+#stage.warn #ecgM{color:var(--red)}
+#sub{position:absolute;left:50%;transform:translateX(-50%);bottom:9.2%;z-index:7;max-width:78%;text-align:center;font-size:1.12em;line-height:1.35;padding:.55em 1.4em;border-radius:2em;background:rgba(7,16,13,.62);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(38,75,63,.9);opacity:0;transition:opacity .5s}
+#sub.in{opacity:1}
+/* controles */
+#ctrl{position:absolute;left:50%;transform:translateX(-50%);bottom:2.2%;z-index:9;display:flex;align-items:center;gap:.5em;padding:.4em .9em;transition:opacity .5s,transform .5s}
+#ctrl.hide{opacity:0;transform:translate(-50%,1em);pointer-events:none}
+#ctrl button{background:none;border:1px solid transparent;color:var(--tx);font:inherit;font-size:1.05em;width:2.2em;height:2.2em;border-radius:50%;cursor:pointer}
+#ctrl button:hover{background:rgba(16,185,129,.2)}
+#ctrl button.pl{background:var(--em);color:#04110c}
+#ctrl button.tg{width:auto;border-radius:2em;padding:0 .9em;font-size:.8em;border-color:rgba(38,75,63,.95);color:var(--mut)}
+#ctrl button.tg.on{background:rgba(16,185,129,.25);color:#9bf0cf;border-color:var(--em)}
+#prog{position:relative;width:15em;height:.45em;background:rgba(255,255,255,.12);border-radius:1em;cursor:pointer;margin:0 .4em}
+#prog i{position:absolute;left:0;top:0;bottom:0;background:var(--em);border-radius:1em;width:0}
+#prog b{position:absolute;top:-.15em;width:2px;height:.75em;background:rgba(255,255,255,.35)}
+#tm{font-size:.78em;color:var(--mut);min-width:6.5em;text-align:center;font-variant-numeric:tabular-nums}
+/* intro */
+#intro{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;background:radial-gradient(ellipse at center,rgba(19,42,35,.92),rgba(7,16,13,.98))}
+#intro h1{font-size:4.4em;letter-spacing:.3em;font-weight:300;margin-left:.3em}
+#intro h1 b{color:var(--em);font-weight:700}
+#intro p{color:var(--mut);margin:.6em 0 1.8em;font-size:1.1em;letter-spacing:.06em}
+#intro button{font:inherit;cursor:pointer;border-radius:3em;padding:.75em 2.2em;font-size:1.05em;margin:.3em;border:1px solid var(--em);background:var(--em);color:#04110c;font-weight:700;box-shadow:0 0 2.5em rgba(16,185,129,.4)}
+#intro button.s{background:none;color:var(--mut);border-color:rgba(38,75,63,.95);box-shadow:none;font-weight:400}
+#intro .ec{width:46%;margin-bottom:1em}
+#stage.paused *{animation-play-state:paused!important}
+/* animaciones personajes */
+.lg,.kn,.am{animation-duration:var(--rd,.7s);animation-iteration-count:infinite}
+.lg{animation-name:lg;animation-timing-function:ease-in-out}.kn{animation-name:kn;animation-timing-function:linear}.am{animation-name:am;animation-timing-function:ease-in-out}
+.el{transform:rotate(-85deg)}
+.bob{animation:bob calc(var(--rd,.7s)/2) ease-in-out infinite}
+.br{animation:br 3.6s ease-in-out infinite;transform-origin:0 0}
+@keyframes lg{0%,100%{transform:rotate(-45deg)}50%{transform:rotate(38deg)}}
+@keyframes kn{0%,100%{transform:rotate(15deg)}40%{transform:rotate(25deg)}55%{transform:rotate(105deg)}80%{transform:rotate(60deg)}}
+@keyframes am{0%,100%{transform:rotate(45deg)}50%{transform:rotate(-50deg)}}
+@keyframes bob{50%{transform:translateY(-5px)}}
+@keyframes br{50%{transform:scale(1,1.03)}}
+.road{animation:road .5s linear infinite}
+@keyframes road{to{transform:translateX(-140px)}}
+.arc{opacity:0;animation:arc 1.8s ease-out infinite}
+@keyframes arc{0%{opacity:0}30%{opacity:.9}100%{opacity:0}}
+.trim1{animation:tr1 4s ease-in-out infinite alternate}.trim2{animation:tr2 4s ease-in-out infinite alternate}
+@keyframes tr1{to{transform:translateX(26px)}}@keyframes tr2{to{transform:translateX(-30px)}}
+.flick{animation:fl 1.1s steps(2) infinite}@keyframes fl{50%{opacity:.35}}
+.cell{border-radius:2px;aspect-ratio:1;opacity:0;transition:opacity .4s calc(var(--i)*9ms)}
+.on .cell{opacity:1}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0b0e"/><stop offset=".65" stop-color="#3a1418"/><stop offset="1" stop-color="#1a0b0e"/></linearGradient>
+<linearGradient id="gGR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1316"/><stop offset="1" stop-color="#0d0709"/></linearGradient>
+<linearGradient id="gPine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07100D"/><stop offset="1" stop-color="#16342b"/></linearGradient>
+<linearGradient id="gG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b3b31"/><stop offset="1" stop-color="#08140f"/></linearGradient>
+<linearGradient id="gDawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1f19"/><stop offset=".55" stop-color="#1f5a46"/><stop offset="1" stop-color="#d9a441"/></linearGradient>
+<radialGradient id="gSun"><stop offset="0" stop-color="#fde68a"/><stop offset=".4" stop-color="rgba(251,191,36,.45)"/><stop offset="1" stop-color="rgba(251,191,36,0)"/></radialGradient>
+</defs></svg>
+<div id="stage">
+ <div id="scenes"></div>
+ <div id="vig"></div>
+ <div id="hud"><div id="act"></div><div id="scn"></div></div>
+ <div id="bpm" class="glass"><svg viewBox="0 0 24 24"><path class="beat" d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.800-8 11-8 11z" fill="#10B981" filter="url(#glow)"/></svg><div id="bpmN">--</div><div id="bpmL">BPM</div></div>
+ <div id="ecg" class="glass"><div class="lb"><span id="ecgM">ECG · derivación II · 100 Hz</span><span>25 mm/s</span></div><canvas id="cv"></canvas></div>
+ <div id="sub"></div>
+ <div id="ctrl" class="glass">
+  <button id="bPrev" title="Anterior (←)" aria-label="Escena anterior">⏮</button>
+  <button id="bPlay" class="pl" title="Play / Pausa (Espacio)" aria-label="Play o pausa">▶</button>
+  <button id="bNext" title="Siguiente (→)" aria-label="Escena siguiente">⏭</button>
+  <button id="bRst" title="Reiniciar (R)" aria-label="Reiniciar">↺</button>
+  <div id="prog" title="Ir a…"><i id="progF"></i></div>
+  <span id="tm">00:00 / 01:25</span>
+  <button id="bAud" class="tg on" title="Audio (M)">Audio</button>
+  <button id="bVoz" class="tg" title="Voz narradora es-ES (V)">Voz</button>
+  <button id="bFs" title="Pantalla completa (F)" aria-label="Pantalla completa">⛶</button>
+ </div>
+ <div id="intro">
+  <div class="ec" id="introEcg"></div>
+  <h1><b>VITA</b>BAND</h1>
+  <p>EL LENGUAJE SILENCIOSO DEL CORAZÓN · cortometraje de 85 s</p>
+  <div><button id="goA">▶ Comenzar con audio</button><button id="goS" class="s">Sin sonido</button></div>
+ </div>
+</div>
+<script>
+"use strict";
+/* ---------- utilidades ---------- */
+let sd=7;function rnd(){sd|=0;sd=sd+0x6D2B79F5|0;let x=Math.imul(sd^sd>>>15,1|sd);x=x+Math.imul(x^x>>>7,61|x)^x;return((x^x>>>14)>>>0)/4294967296}
+const gs=()=>(rnd()+rnd()+rnd()+rnd()-2)*1.7;
+const $=id=>document.getElementById(id);
+const T=85,GY=460;
+/* ---------- forma ECG (P, QRS, T) ---------- */
+const gg=(p,c,w,a)=>a*Math.exp(-.5*((p-c)/w)**2);
+function shape(p){return gg(p,.12,.026,.14)+gg(p,.2,.007,-.14)+gg(p,.22,.009,1)+gg(p,.24,.008,-.25)+gg(p,.42,.05,.3)}
+function mini(w,h,col,noisy,beats){beats=beats||3;let p='';for(let i=0;i<=w;i++){let v=shape(((i/w)*beats)%1);if(noisy)v=v*.55+(rnd()-.5)*.55;p+=i+','+(h*.7-v*h*.6).toFixed(1)+' '}
+ return '<svg viewBox="0 0 '+w+' '+h+'" width="100%"><polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round"/></svg>'}
+/* ---------- personajes SVG ---------- */
+function fig(o){
+ const s=o.s||1,f=o.flip||1,pose=o.pose||'stand',run=pose==='run',sit=pose==='sit';
+ let top=o.top||'#10B981',bot=o.bot||'#1e3a32',skin=o.skin||'#e3b08d',hair=o.hair||'#2b1d16',shoe=o.shoe||'#e5e7eb';
+ if(o.ghost){top=bot=skin=hair=shoe='#34d399'}
+ const op=(o.op==null?1:o.op)*(o.ghost?.62:1),ph=o.ph||0;
+ const st=(c,w)=>'stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+ const leg=(d,dim)=>{const a=run?'animation-delay:'+(d+ph)+'s':'transform:rotate('+(sit?-88:(d?3:-3))+'deg)';const k=run?'animation-delay:'+(d+ph)+'s':'transform:rotate('+(sit?88:0)+'deg)';
+  return '<g'+(dim?' opacity=".72"':'')+'><g class="'+(run?'lg':'')+'" style="'+a+';transform-origin:0 0"><line x1="0" y1="0" x2="0" y2="48" '+st(bot,15)+'/><g class="'+(run?'kn':'')+'" style="'+k+';transform-origin:0 48px"><line x1="0" y1="48" x2="0" y2="93" '+st(bot,13)+'/><path d="M-2 97h15" '+st(shoe,8)+'/></g></g></g>'};
+ const arm=(d,dim,hold)=>{const aa=run?'animation-delay:'+(d+ph)+'s':'transform:rotate('+(sit?-35:(o.ar!=null&&!dim?o.ar:(dim?-4:6)))+'deg)';const ee=run?'':'transform:rotate('+(sit?-55:(o.eb!=null&&!dim?o.eb:-8))+'deg);';
+  return '<g'+(dim?' opacity=".72"':'')+'><g class="'+(run?'am':'')+'" style="'+aa+';transform-origin:0 -50px"><line x1="0" y1="-50" x2="0" y2="-12" '+st(top,11)+'/><g class="'+(run?'el':'')+'" style="'+ee+'transform-origin:0 -12px"><line x1="0" y1="-12" x2="0" y2="23" '+st(skin,9)+'/>'+(hold||'')+'</g></g></g>'};
+ const torso='<line x1="0" y1="0" x2="0" y2="-50" '+st(top,30)+'/>'+(o.strap?'<rect class="beat" x="-15" y="-42" width="30" height="7" rx="3" fill="#10B981" filter="url(#glow)"/>':'')+(o.extraTop||'')+
+  '<line x1="0" y1="-50" x2="0" y2="-60" '+st(skin,9)+'/><circle cx="0" cy="-71" r="13" fill="'+skin+'"/><path d="M-13.500 -72a13.500 13.500 0 0 1 27 0c-6-5-14-6-27 0z" fill="'+hair+'"/>'+(o.hairX||'')+'<circle cx="6" cy="-70" r="1.6" fill="#10201a"/>';
+ return '<g transform="translate('+o.x+' '+o.y+') scale('+(f*s)+' '+s+')" opacity="'+op+'"'+(o.ghost?' filter="url(#glow)"':'')+' style="--rd:'+(o.rd||'.7s')+'"><g class="'+(run?'bob':'')+'">'+leg(-.35,1)+
+  '<g style="transform:rotate('+(run?10:sit?6:0)+'deg);transform-origin:0 0"><g class="'+(run?'':'br')+'">'+arm(-.35,1)+torso+arm(0,0,o.hold)+'</g></g>'+leg(0,0)+'</g></g>'}
+const py=(s,pose)=>GY-(pose==='sit'?53:100)*s;
+function chair(x,y,s){return '<g fill="#24443b" stroke="#24443b"><rect x="'+(x-27*s)+'" y="'+(y+6*s)+'" width="'+(46*s)+'" height="'+(9*s)+'" rx="3"/><rect x="'+(x-31*s)+'" y="'+(y-78*s)+'" width="'+(8*s)+'" height="'+(90*s)+'" rx="4"/><line x1="'+(x-4*s)+'" y1="'+(y+15*s)+'" x2="'+(x-4*s)+'" y2="'+GY+'" stroke-width="5"/><line x1="'+(x-32*s)+'" y1="'+GY+'" x2="'+(x+24*s)+'" y2="'+GY+'" stroke-width="5"/></g>'}
+function desk(x1,x2,top,col){return '<g><rect x="'+x1+'" y="'+top+'" width="'+(x2-x1)+'" height="10" rx="3" fill="'+col+'"/><rect x="'+(x1+14)+'" y="'+(top+10)+'" width="7" height="'+(GY-top-10)+'" fill="'+col+'"/><rect x="'+(x2-21)+'" y="'+(top+10)+'" width="7" height="'+(GY-top-10)+'" fill="'+col+'"/></g>'}
+function skyline(x0,x1,col){let r='';for(let x=x0;x<x1;x+=46){const h=60+rnd()*150;r+='<rect x="'+x+'" y="'+(GY-h)+'" width="40" height="'+h+'" fill="'+col+'"/>'}return r}
+function dashes(y,col){let r='';for(let x=0;x<1500;x+=140)r+='<rect x="'+x+'" y="'+y+'" width="70" height="7" rx="3" fill="'+col+'"/>';return '<g class="road">'+r+'</g>'}
+const ground=g=>'<rect y="'+GY+'" width="1280" height="260" fill="url(#'+g+')"/><line x1="0" x2="1280" y1="'+GY+'" y2="'+GY+'" stroke="rgba(16,185,129,.25)"/>';
+const SVG=c=>'<svg viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice">'+c+'</svg>';
+/* ---------- escenas ---------- */
+const SC=[
+{t0:0,t1:15,act:'ACTO I · EL RUIDO',name:'Rojo',chord:[110,116.54,164.81,207.65],subs:[[.3,'Marcos corre. Trabaja. Corre otra vez… y nunca sabe cuánto es demasiado.'],[7.5,'Su reloj dice una cosa. Su cuerpo, otra. Todo en rojo.']],
+ html:()=>{const p=1.3,q=1.25,qy=py(q,'sit');return SVG('<rect width="1280" height="720" fill="url(#gRed)"/><circle cx="250" cy="330" r="190" fill="rgba(239,68,68,.12)"/>'+skyline(0,640,'#1a0d10')+
+ '<rect x="640" width="640" height="720" fill="rgba(5,5,10,.55)"/><line x1="640" y1="0" x2="640" y2="720" stroke="rgba(239,68,68,.3)" stroke-dasharray="6 8"/>'+ground('gGR')+
+ '<clipPath id="c1"><rect width="640" height="720"/></clipPath><g clip-path="url(#c1)">'+dashes(GY+70,'rgba(239,68,68,.45)')+'</g>'+
+ fig({x:330,y:py(p,'run'),s:p,pose:'run',top:'#b45353',bot:'#2a1a1c',rd:'.62s'})+
+ '<rect x="700" y="90" width="200" height="190" rx="6" fill="#0a0a12" stroke="rgba(239,68,68,.3)"/>'+Array.from({length:26},()=>'<rect x="'+(710+rnd()*180)+'" y="'+(100+rnd()*170)+'" width="5" height="5" fill="rgba(251,191,36,.5)"/>').join('')+
+ '<text x="1130" y="130" fill="#f87171" font-size="34" font-family="monospace" class="flick">02:13</text>'+
+ chair(900,qy,q)+desk(940,1250,qy-25*q,'#2a1a1c')+
+ '<rect x="1040" y="'+(qy-25*q-92)+'" width="140" height="92" rx="6" fill="#1b0c0f" stroke="#ef4444"/><g class="flick">'+[0,1,2,3].map(i=>'<rect x="1052" y="'+(qy-25*q-80+i*20)+'" width="'+(40+rnd()*80)+'" height="8" rx="3" fill="#ef4444" opacity=".7"/>').join('')+'</g>'+
+ fig({x:900,y:qy,s:q,pose:'sit',top:'#6b3a3a',bot:'#2a1a1c'}))+
+ '<div class="card red" data-at=".5" style="left:6%;top:15%"><h4>⌚ Reloj óptico</h4><div class="big r"><span class="noisy" data-a="118" data-b="186">171</span></div><small>estimación con retraso</small></div>'+
+ '<div class="card red" data-at="4" style="left:57%;top:13%"><h4>Panel nocturno</h4><p>Calorías: <span class="noisy" data-a="300" data-b="900">???</span></p><p>Zona: ¿?</p><p>Recuperación: —</p></div>'+
+ '<div class="card red" data-at="9" style="left:30%;top:30%"><h4>Diagnóstico</h4><p>Sin ECG. Sin contexto.</p></div>'}},
+{t0:15,t1:28,act:'ACTO II · LA CLARIDAD',name:'Claridad ECG',chord:[110,164.81,220,277.18],subs:[[.2,'Una banda pectoral. Cien muestras por segundo. Un latido real, por fin.'],[7,'Ya no es una estimación: es su electrocardiograma. 64 pulsaciones en calma.']],
+ html:()=>{const p=1.3;return SVG('<rect width="1280" height="720" fill="url(#gPine)"/><circle cx="330" cy="300" r="220" fill="rgba(16,185,129,.07)"/>'+ground('gG')+
+ [60,100,140,180].map((r,i)=>'<path class="arc" style="animation-delay:'+(i*.35)+'s" d="M 370 '+(310-r)+' A '+r+' '+r+' 0 0 1 370 '+(310+r)+'" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>').join('')+
+ fig({x:330,y:py(p,'stand'),s:p,top:'#1f6f55',strap:1}))+
+ '<div class="card" data-at=".8" style="left:50%;top:14%;width:44%"><h4>VitaBand · Escritorio</h4><div style="display:flex;gap:1.4em;align-items:center"><div><div class="big" style="font-size:4.2em">64</div><small>BPM · ECG real</small></div><div style="flex:1"><div style="font-size:.7em;color:var(--red)">Óptico ✕ <s style="color:#7a3b3b">estimado</s></div>'+mini(220,34,'#f87171',1,3)+'<div style="font-size:.7em;color:#6ee7b7;margin-top:.3em">ECG 100 Hz ✓</div>'+mini(220,34,'#10B981',0,3)+'</div></div></div>'+
+ '<div class="card" data-at="3.5" style="left:50%;top:44%"><div class="big" style="font-size:2.2em">100</div><small>muestras por segundo</small></div>'+
+ '<div class="card" data-at="5" style="left:68%;top:44%"><div class="big" style="font-size:1.4em;padding:.15em 0">Latido a latido</div><small>real, sin retraso</small></div>'}},
+{t0:28,t1:40,act:'ACTO II · LA CLARIDAD',name:'Calma en la oficina',chord:[146.83,220,277.18,369.99],subs:[[.2,'En plena oficina, el estrés dispara su pulso: 108.'],[4.8,'El Modo Overlay lo vigila y la Coherencia Cardíaca le guía al respirar.'],[9,'En segundos, 66. Sin salir del trabajo.']],
+ html:()=>{const q=1.25,qy=py(q,'sit'),dt=qy-25*q;return SVG('<rect width="1280" height="720" fill="url(#gPine)"/><rect x="60" y="80" width="150" height="260" rx="6" fill="rgba(16,185,129,.06)" stroke="rgba(38,75,63,.9)"/>'+ground('gG')+
+ '<circle id="halo" cx="235" cy="335" r="130" fill="rgba(239,68,68,.14)"/>'+chair(230,qy,q)+desk(270,960,dt,'#24443b')+'<rect x="300" y="'+(dt-8)+'" width="130" height="8" rx="3" fill="#10201a"/>'+
+ fig({x:230,y:qy,s:q,pose:'sit',top:'#1f6f55',bot:'#1e3a32',strap:1}))+
+ '<div class="card" data-at=".3" style="left:34%;top:11%;width:40%"><h4>Hoja de cálculo · Q4.xlsx</h4>'+[90,70,82,55,76].map(w=>'<div style="height:.5em;width:'+w+'%;background:rgba(255,255,255,.1);border-radius:3px;margin:.55em 0"></div>').join('')+
+ '<div class="glass" data-at="4.6" style="position:absolute;right:1em;bottom:1em;padding:.5em .9em;display:flex;gap:.6em;align-items:center;background:rgba(7,16,13,.7)"><svg viewBox="0 0 24 24" width="22" height="22"><path class="beat" d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.800-8 11-8 11z" fill="#10B981"/></svg><b id="ovN" style="font-size:1.7em;color:var(--em)">108</b><small>BPM<br>Overlay</small></div></div>'+
+ '<div class="card" data-at="5" style="left:76%;top:11%;width:19%;text-align:center"><h4>Coherencia Cardíaca</h4><div style="height:8em;display:flex;align-items:center;justify-content:center"><div id="sph" style="width:7em;height:7em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6ee7b7,#10B981 55%,#064e3b);box-shadow:0 0 3em rgba(16,185,129,.55)"></div></div><p id="sphT" style="font-weight:600">Inspira</p></div>'}},
+{t0:40,t1:52,act:'ACTO II · LA CLARIDAD',name:'Cuándo apretar',chord:[130.81,196,261.63,329.63],subs:[[.2,'El Mapa de Calor y el balance TSB le dicen cuándo apretar… y cuándo parar.'],[6,'El Laboratorio ECG revela cada latido: Poincaré, recorte de sesión.']],
+ html:()=>{let heat='';for(let c=0;c<12;c++)for(let r=0;r<7;r++){const v=rnd()*(r>4?.7:1)*(.35+c/18),w=rnd();const col=w>.94?'#f59e0b':v<.2?'#17332b':v<.45?'#1f7a5c':v<.7?'#10B981':'#6ee7b7';heat+='<div class="cell" style="--i:'+(c*7+r)+';background:'+col+'"></div>'}
+ let pts='',tsb='',lx=0,ly=0;for(let x=0;x<=300;x+=5){const y=65-26*Math.sin(x/46+.55);tsb+=x+','+y.toFixed(1)+' ';lx=x;ly=y}
+ let sc='';for(let i=0;i<70;i++){const a=gs()*26,b=gs()*9;sc+='<circle cx="'+(70+(a-b)*.7).toFixed(1)+'" cy="'+(62-(a+b)*.7).toFixed(1)+'" r="1.8" fill="#34d399" opacity=".8"/>'}
+ return SVG('<rect width="1280" height="720" fill="url(#gPine)"/>'+ground('gG')+fig({x:1190,y:py(.8,'stand'),s:.8,flip:-1,top:'#1f6f55',strap:1}))+
+ '<div class="card" data-at=".5" style="left:3%;top:13%;width:27%"><h4>Mapa de calor · 12 semanas</h4><div style="display:grid;grid-template-columns:repeat(12,1fr);grid-auto-flow:column;grid-template-rows:repeat(7,auto);gap:3px">'+heat+'</div></div>'+
+ '<div class="card" data-at="2" style="left:32%;top:13%;width:27%"><h4>Balance fatiga / forma · TSB</h4><svg viewBox="0 0 300 130" width="100%"><rect width="300" height="64" fill="rgba(16,185,129,.12)"/><rect y="66" width="300" height="64" fill="rgba(245,158,11,.12)"/><path d="M0,65 L'+tsb+' L300,65Z" fill="rgba(16,185,129,.2)"/><polyline points="'+tsb+'" fill="none" stroke="#10B981" stroke-width="2.5"/><circle cx="'+lx+'" cy="'+ly+'" r="5" fill="#6ee7b7" filter="url(#glow)"/></svg><span class="pill" data-at="3" data-until="5">Verde = listo para rendir</span><span class="pill am" data-at="5">Ámbar = toca recuperar</span></div>'+
+ '<div class="card" data-at="6" style="left:61%;top:13%;width:27%"><h4>Laboratorio ECG</h4><svg viewBox="0 0 140 110" width="46%" style="float:left"><line x1="10" y1="100" x2="130" y2="10" stroke="rgba(255,255,255,.2)"/>'+sc+'<ellipse cx="70" cy="62" rx="30" ry="12" transform="rotate(-38 70 62)" fill="none" stroke="#10B981"/></svg><svg viewBox="0 0 160 110" width="52%" style="float:right"><rect width="160" height="110" fill="rgba(0,0,0,.25)" rx="4"/><polyline points="0,70 20,72 30,40 40,70 55,35 70,70 100,38 120,70 160,66" fill="none" stroke="#34d399"/><g class="trim1"><rect x="26" y="0" width="3" height="110" fill="#f59e0b"/></g><g class="trim2"><rect x="128" y="0" width="3" height="110" fill="#f59e0b"/></g></svg><div style="clear:both"></div><small>Poincaré · Session Trimmer</small></div>'}},
+{t0:52,t1:62,act:'ACTO II · LA CLARIDAD',name:'Coach IA local',chord:[174.61,220,261.63,349.23],subs:[[.2,'Su Coach IA vive en su PC. Ollama, cien por cien privado. Cero euros.'],[5.4,'Lee sus latidos reales y, con un clic, lo añade al plan de hoy.']],
+ html:()=>{const q=1.25,qy=py(q,'sit');return SVG('<rect width="1280" height="720" fill="url(#gPine)"/>'+ground('gG')+chair(200,qy,q)+desk(240,1000,qy-25*q,'#24443b')+fig({x:200,y:qy,s:q,pose:'sit',top:'#1f6f55',strap:1}))+
+ '<div class="card" data-at=".3" style="left:28%;top:10%;width:44%"><h4>Coach IA · local</h4><div style="background:rgba(255,255,255,.07);border-radius:1em;padding:.5em .9em;width:55%;margin-left:auto;font-size:.85em">¿Entreno hoy?</div><div style="background:rgba(16,185,129,.16);border:1px solid rgba(16,185,129,.4);border-radius:1em;padding:.6em .9em;margin:.7em 0;font-size:.88em;line-height:1.35" data-at="2.5">Tu TSB está en −12 y tu HRV baja. Hoy: <b>rodaje suave Z2, 40 min</b>.</div><span class="pill">Hábitos en 1 clic</span><span class="pill">Resumen para tu médico</span><div data-at="5.4" data-snd="1" style="margin-top:.8em;display:inline-block;background:var(--em);color:#04110c;font-weight:700;padding:.55em 1.3em;border-radius:2em;box-shadow:0 0 1.8em rgba(16,185,129,.5)">✓ Añadido al plan de hoy</div></div>'+
+ '<div class="card" data-at="1.2" style="left:75%;top:10%;width:21%;text-align:center"><svg viewBox="0 0 60 70" width="34%"><path d="M30 4 6 14v20c0 18 11 28 24 33 13-5 24-15 24-33V14z" fill="rgba(16,185,129,.16)" stroke="#10B981" stroke-width="2.5" filter="url(#glow)"/><rect x="21" y="30" width="18" height="14" rx="3" fill="#10B981"/><path d="M24 30v-5a6 6 0 0 1 12 0v5" fill="none" stroke="#10B981" stroke-width="3"/></svg><p style="font-weight:700">Ollama · 100 % offline</p><small>0 € cuotas · privacidad médica total</small></div>'+
+ '<div class="card" data-at="6.4" style="left:75%;top:41%;width:21%"><h4>Hoy · Dom 22</h4><p style="color:#6ee7b7;font-weight:600">✓ Rodaje Z2 · 40 min</p></div>'}},
+{t0:62,t1:74,act:'ACTO III · EL DOMINIO',name:'Modo Fantasma',chord:[110,164.81,220,329.63],subs:[[.2,'Hoy corre en armonía, junto a su mejor sesión: el Modo Fantasma.'],[6,'El Susurrador le avisa: «Zona 3. Mantén el ritmo».']],
+ html:()=>{const p=1.4;return SVG('<rect width="1280" height="720" fill="url(#gDawn)"/><circle cx="930" cy="360" r="200" fill="url(#gSun)"/><path d="M0 460 L150 330 L330 440 L520 300 L760 450 L980 330 L1280 450 V460Z" fill="#0f3a2e" opacity=".8"/>'+ground('gG')+dashes(GY+70,'rgba(16,185,129,.5)')+
+ [[640,.1],[665,.2]].map(a=>fig({x:a[0],y:py(p,'run'),s:p,pose:'run',ghost:1,op:a[1],rd:'.6s',ph:-.1})).join('')+
+ fig({x:700,y:py(p,'run'),s:p,pose:'run',ghost:1,rd:'.6s',ph:-.2})+fig({x:470,y:py(p,'run'),s:p,pose:'run',top:'#10B981',strap:1,rd:'.6s'}))+
+ '<div class="tag" style="left:33%;top:21%">Marcos</div><div class="tag" data-at=".8" style="left:50%;top:21%;color:#6ee7b7">Tu mejor sesión · fantasma</div>'+
+ '<div class="card" data-at="1.5" style="left:3.2%;top:15%"><h4>Modo Fantasma</h4><div class="big" style="font-size:2.2em">−0:03</div><small>segundos por delante</small></div>'+
+ '<div class="card" data-at="6" style="left:66%;top:14%;width:28%"><h4>🎧 Susurrador en vivo</h4><p style="font-size:1.15em;font-weight:600">«Zona 3 · mantén el ritmo»</p></div>'}},
+{t0:74,t1:85,act:'ACTO III · EL DOMINIO',name:'Un solo ecosistema',chord:[130.81,196,329.63,392],subs:[[.2,'Deportistas, oficina, entrenadores y médicos: un solo ecosistema.'],[5,'Tu corazón a 100 Hz. Ciencia clínica, IA privada y rendimiento real en tu escritorio.']],
+ html:()=>{const s=1.15,y=py(s,'stand'),clip='<rect x="6" y="2" width="22" height="30" rx="2" fill="#e8f1ee"/><rect x="9" y="8" width="16" height="2" fill="#94a3b8"/><path d="M9 20h4l2-5 3 9 2-4h4" stroke="#10B981" fill="none" stroke-width="1.5"/>',
+ pdf='<rect x="6" y="6" width="22" height="28" rx="2" fill="#f1f5f9"/><path d="M9 22h4l2-6 3 10 2-4h4" stroke="#10B981" fill="none" stroke-width="1.8"/>';
+ const lab=(l,t,d,a)=>'<div class="card" data-at="'+a+'" data-until="5" style="left:'+l+'%;top:13%;width:17%;text-align:center"><h4>'+t+'</h4><small>'+d+'</small></div>';
+ return SVG('<rect width="1280" height="720" fill="url(#gPine)"/><ellipse cx="640" cy="300" rx="560" ry="240" fill="rgba(16,185,129,.06)"/>'+ground('gG')+
+ fig({x:190,y:y,s:s,top:'#10B981',strap:1,hairX:'<rect x="-13" y="-79" width="26" height="4" fill="#fff"/>'})+
+ fig({x:440,y:y,s:s,top:'#64748b',bot:'#1f2a37',extraTop:'<path d="M0 -48l-4 10 4 8 4-8z" fill="#10B981"/>',hair:'#6b4a2a'})+
+ fig({x:690,y:y,s:s,top:'#b7791f',bot:'#2a2a2a',ar:-35,eb:-70,hold:'<g transform="translate(-5 12)"><rect x="-6" y="0" width="16" height="22" rx="2" fill="#f1e4c6"/><rect x="-3" y="-2" width="10" height="3" fill="#6b5b3a"/></g>'})+
+ fig({x:940,y:y,s:s,top:'#e8f1ee',bot:'#243b53',skin:'#d9a07a',hair:'#1c1410',hairX:'<path d="M-12 -78c-14 4-16 18-8 30-4-12 0-20 8-26z" fill="#1c1410"/>',ar:-20,eb:-75,hold:'<g transform="translate(-4 8) scale(.8)">'+clip+'</g>'}))+
+ lab(6.3,'Deportista','Zonas exactas y recuperación',.4)+lab(25.9,'Oficina','Estrés bajo control',.9)+lab(45.4,'Entrenador','Todos sus atletas, una tabla',1.4)+lab(64.9,'Doctora','Informe clínico PDF',1.9)+
+ '<div class="card" data-at="2.6" data-until="5" style="left:80%;top:36%;width:16%"><h4>Informe clínico.pdf</h4>'+mini(160,34,'#10B981',0,3)+'</div>'+
+ '<div data-at="5.2" style="position:absolute;left:8%;width:84%;top:14%;text-align:center"><div style="font-size:.7em;letter-spacing:.4em;color:var(--em);font-weight:700">VITABAND</div><div style="font-size:3.4em;font-weight:700;color:var(--em);line-height:1.15;text-shadow:0 0 .6em rgba(16,185,129,.45)">Tu corazón a 100 Hz.</div><div style="font-size:1.25em;color:#cfe8dd;margin-top:.3em">Ciencia clínica, IA privada y rendimiento real en tu escritorio.</div></div>'}}
+];
+const KF=[[0,146],[6,158],[12,150],[15,150],[17,64],[28,64],[29.5,108],[33,108],[39,66],[40,66],[41,62],[52,62],[62,60],[64.5,138],[74,142],[78,64],[85,62]];
+function bpmAt(x){for(let i=1;i<KF.length;i++)if(x<=KF[i][0]){const a=KF[i-1],b=KF[i];return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0])}return KF[KF.length-1][1]}
+const NZ=x=>x<14.5?1:x<17?1-(x-14.5)/2.5:0;
+/* ---------- montaje ---------- */
+const stage=$('stage'),els=[];
+$('scenes').innerHTML=SC.map((s,i)=>'<div class="scene" id="sc'+i+'">'+s.html()+'</div>').join('');
+SC.forEach((s,i)=>els.push([...$('sc'+i).querySelectorAll('[data-at]')]));
+$('introEcg').innerHTML=mini(400,50,'#10B981',0,4);
+const pr=$('prog');SC.slice(1).forEach(s=>{const b=document.createElement('b');b.style.left=(s.t0/T*100)+'%';pr.appendChild(b)});
+/* ---------- estado ---------- */
+let t=0,playing=false,last=0,acc=0,idx=-1,pulse=0,phase=0,drift=0,subKey='',curLine='',dispT=0,audioOn=true,voiceOn=false;
+const N=300,buf=new Array(N).fill(0);
+const cv=$('cv'),cx=cv.getContext('2d');let dpr=1;
+/* ---------- audio ---------- */
+let AC=null,master,pad,oscs=[];
+function initAudio(){if(AC)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;AC=new C();master=AC.createGain();master.gain.value=audioOn?.85:0;master.connect(AC.destination);
+ const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;pad=AC.createGain();pad.gain.value=0;pad.connect(lp);lp.connect(master);
+ for(let i=0;i<4;i++){const o=AC.createOscillator();o.type=i%2?'triangle':'sine';o.frequency.value=110*(i+1);const g=AC.createGain();g.gain.value=.25;o.connect(g);g.connect(pad);o.start();oscs.push(o)}}
+function chordTo(ch){if(!AC)return;oscs.forEach((o,i)=>o.frequency.setTargetAtTime(ch[i%ch.length],AC.currentTime,.7))}
+function padOn(on){if(AC)pad.gain.setTargetAtTime(on?.07:0,AC.currentTime,.5)}
+function hit(at,f,g){const o=AC.createOscillator(),e=AC.createGain();o.type='sine';o.frequency.setValueAtTime(f,at);o.frequency.exponentialRampToValueAtTime(f*.5,at+.12);e.gain.setValueAtTime(0,at);e.gain.linearRampToValueAtTime(g,at+.01);e.gain.exponentialRampToValueAtTime(.001,at+.17);o.connect(e);e.connect(master);o.start(at);o.stop(at+.2)}
+function thump(b){if(!AC||!audioOn||!playing)return;const n=AC.currentTime,fast=b>120;hit(n,fast?115:92,.42);hit(n+(fast?.11:.2),fast?90:72,.24)}
+function ding(){if(!AC||!audioOn||!playing)return;const n=AC.currentTime;[880,1318.5].forEach((f,i)=>{const o=AC.createOscillator(),e=AC.createGain();o.type='sine';o.frequency.value=f;e.gain.setValueAtTime(0,n+i*.09);e.gain.linearRampToValueAtTime(.16,n+i*.09+.02);e.gain.exponentialRampToValueAtTime(.001,n+i*.09+.7);o.connect(e);e.connect(master);o.start(n+i*.09);o.stop(n+i*.09+.8)})}
+/* ---------- voz ---------- */
+function speak(txt){if(!voiceOn||!playing||!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang='es-ES';u.rate=1;const v=speechSynthesis.getVoices().find(v=>v.lang&&v.lang.toLowerCase().startsWith('es'));if(v)u.voice=v;speechSynthesis.speak(u)}
+function stopVoice(){if('speechSynthesis' in window)speechSynthesis.cancel()}
+/* ---------- motor ECG 100 Hz ---------- */
+function step(){const b=bpmAt(t),nz=NZ(t),prev=phase;phase+=.01*b*(1+drift)/60;
+ if(phase>=1){phase-=1;drift=(Math.random()-.5)*(.5*nz+.04)}
+ if(prev<.22&&phase>=.22){pulse=1;thump(b)}
+ let v=shape(phase);const run=t>=62&&t<76;
+ v=v*(1-.45*nz)+nz*(.28*(Math.random()-.5)*2+.22*Math.sin(t*9))+.05*Math.sin(t*.9)+(run?.035*(Math.random()-.5)*2:0);
+ if(nz>0&&Math.random()<.012*nz)v+=(Math.random()-.5)*1.1;
+ buf.push(v);buf.shift()}
+function drawECG(){const W=cv.width,H=cv.height,c=cx;c.clearRect(0,0,W,H);const g=10*dpr;c.lineWidth=1;
+ for(let x=0;x<W;x+=g){c.strokeStyle=Math.round(x/g)%5?'rgba(16,185,129,.06)':'rgba(16,185,129,.17)';c.beginPath();c.moveTo(x,0);c.lineTo(x,H);c.stroke()}
+ for(let y=0;y<H;y+=g){c.strokeStyle=Math.round(y/g)%5?'rgba(16,185,129,.06)':'rgba(16,185,129,.17)';c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke()}
+ const nz=NZ(t),r=Math.round(16+223*nz),gc=Math.round(185-117*nz),bl=Math.round(129-61*nz),col='rgb('+r+','+gc+','+bl+')';
+ const gr=c.createLinearGradient(0,0,W,0);gr.addColorStop(0,'rgba('+r+','+gc+','+bl+',0)');gr.addColorStop(.35,col);gr.addColorStop(1,col);
+ c.strokeStyle=gr;c.lineWidth=2*dpr;c.shadowColor=col;c.shadowBlur=10*dpr;c.lineJoin='round';c.beginPath();
+ for(let i=0;i<N;i++){const x=i/(N-1)*W,y=H*.68-buf[i]*H*.55;i?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();
+ c.fillStyle='#fff';c.beginPath();c.arc(W-2*dpr,H*.68-buf[N-1]*H*.55,3*dpr,0,7);c.fill();c.shadowBlur=0}
+/* ---------- escena / actualización ---------- */
+const sceneAt=x=>{for(let i=SC.length-1;i>=0;i--)if(x>=SC[i].t0)return i;return 0};
+function enter(i){const prev=idx;idx=i;document.querySelectorAll('.scene').forEach((s,k)=>s.classList.toggle('active',k===i));
+ $('act').textContent=SC[i].act;$('scn').innerHTML=SC[i].name+'<small>ESCENA '+(i+1)+' / 7</small>';chordTo(SC[i].chord);subKey='';
+ if(prev>=0)setTimeout(()=>{if(idx!==prev)els[prev].forEach(e=>e.classList.remove('on'))},1100)}
+const fmt=x=>{x=Math.floor(x);return String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0')};
+function update(dt){const i=sceneAt(t);if(i!==idx)enter(i);const lt=t-SC[i].t0,b=bpmAt(t),nz=NZ(t);
+ els[i].forEach(e=>{const a=+e.dataset.at,u=e.dataset.until!=null?+e.dataset.until:1e9,on=lt>=a&&lt<u;if(on!==e.classList.contains('on')){e.classList.toggle('on',on);if(on&&e.dataset.snd)ding()}});
+ const lines=SC[i].subs;let k=-1;lines.forEach((l,j)=>{if(lt>=l[0])k=j});const key=i+':'+k;
+ if(key!==subKey){subKey=key;const s=$('sub');s.classList.remove('in');if(k>=0){curLine=lines[k][1];s.textContent=curLine;void s.offsetWidth;s.classList.add('in');speak(curLine)}else s.textContent=''}
+ if(playing)pulse*=Math.exp(-dt*7);stage.style.setProperty('--p',pulse.toFixed(3));
+ dispT+=dt;if(dispT>.15){dispT=0;const d=nz>.5?b+(Math.random()-.5)*60*nz:b;$('bpmN').textContent=Math.round(d);
+  document.querySelectorAll('#sc0 .noisy').forEach(e=>{e.textContent=Math.round(+e.dataset.a+Math.random()*(+e.dataset.b-+e.dataset.a))})}
+ stage.classList.toggle('warn',nz>.5);
+ const z=b<114?1:b<133?2:b<152?3:b<171?4:5;$('bpmL').textContent=nz>.5?'FC óptica · ±30':'FC real · ECG · Z'+z;
+ $('ecgM').textContent=nz>.5?'Óptico PPG · estimado':'ECG · derivación II · 100 Hz';
+ if(i===2){const m=Math.max(0,Math.min(1,(b-66)/42));const h=$('halo');if(h)h.style.fill='rgba('+Math.round(16+223*m)+','+Math.round(185-117*m)+','+Math.round(129-61*m)+',.16)';$('ovN').textContent=Math.round(b);
+  if(lt>4.6){const ph=((lt-4.6)%10)/10,e=(1-Math.cos(ph*2*Math.PI))/2;$('sph').style.transform='scale('+(.65+.45*e)+')';$('sphT').textContent=ph<.5?'Inspira…':'Espira…'}}
+ $('progF').style.width=(t/T*100)+'%';$('tm').textContent=fmt(t)+' / '+fmt(T)}
+function frame(ts){const dt=Math.min(.1,(ts-last)/1000||0);last=ts;
+ if(playing){t+=dt;acc+=dt;while(acc>=.01){step();acc-=.01}if(t>=T){t=T;pause()}}
+ update(dt);drawECG();requestAnimationFrame(frame)}
+/* ---------- controles ---------- */
+function play(){if(t>=T-.05){t=0;idx=-1}playing=true;stage.classList.remove('paused');$('bPlay').textContent='❚❚';if(AC&&AC.state==='suspended')AC.resume();padOn(audioOn);
+ if('speechSynthesis' in window&&speechSynthesis.paused)speechSynthesis.resume();else if(voiceOn&&curLine&&!speechSynthesis.speaking)speak(curLine);wake()}
+function pause(){playing=false;stage.classList.add('paused');$('bPlay').textContent='▶';padOn(false);if('speechSynthesis' in window&&speechSynthesis.speaking)speechSynthesis.pause();wake()}
+function seek(x){t=Math.max(0,Math.min(T-.01,x));acc=0;subKey='';stopVoice();update(0)}
+function go(i){i=Math.max(0,Math.min(SC.length-1,i));seek(SC[i].t0+.01)}
+$('bPlay').onclick=()=>playing?pause():play();
+$('bNext').onclick=()=>go(sceneAt(t)+1);
+$('bPrev').onclick=()=>{const i=sceneAt(t);go(t-SC[i].t0>2?i:i-1)};
+$('bRst').onclick=()=>{seek(0);if(!playing)play()};
+pr.onclick=e=>{const r=pr.getBoundingClientRect();seek((e.clientX-r.left)/r.width*T)};
+function setAud(v){audioOn=v;$('bAud').classList.toggle('on',v);if(AC){master.gain.setTargetAtTime(v?.85:0,AC.currentTime,.1)}}
+function setVoz(v){voiceOn=v;$('bVoz').classList.toggle('on',v);if(!v)stopVoice();else if(playing&&curLine)speak(curLine)}
+$('bAud').onclick=()=>setAud(!audioOn);$('bVoz').onclick=()=>setVoz(!voiceOn);
+function fs(){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}
+$('bFs').onclick=fs;
+$('goA').onclick=()=>{setAud(true);start()};$('goS').onclick=()=>{setAud(false);start()};
+function start(){initAudio();$('intro').style.display='none';seek(0);play()}
+addEventListener('keydown',e=>{if($('intro').style.display!=='none'){if(e.key==='Enter'||e.key===' '){e.preventDefault();start()}return}
+ const k=e.key.toLowerCase();if(k===' '){e.preventDefault();playing?pause():play()}else if(k==='arrowright')go(sceneAt(t)+1);else if(k==='arrowleft')$('bPrev').click();else if(k==='f')fs();else if(k==='r')$('bRst').click();else if(k==='m')setAud(!audioOn);else if(k==='v')setVoz(!voiceOn);wake()});
+let idleT;function wake(){$('ctrl').classList.remove('hide');stage.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>{if(playing){$('ctrl').classList.add('hide');stage.classList.add('idle')}},2600)}
+['mousemove','touchstart','click'].forEach(ev=>addEventListener(ev,wake));
+function fit(){const w=stage.clientWidth;stage.style.fontSize=(w/1280*16)+'px';dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.max(10,cv.clientWidth*dpr);cv.height=Math.max(10,cv.clientHeight*dpr)}
+addEventListener('resize',fit);fit();stage.classList.add('paused');update(0);requestAnimationFrame(frame);
+if('speechSynthesis' in window)speechSynthesis.getVoices();
+</script>
+</body>
+</html>

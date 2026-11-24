@@ -74,7 +74,7 @@ class SesionActiva:
         )
         self.mqtt.vincular_viewmodel(self.vm)
 
-        self.ventana = MainWindow(view_model=self.vm, nombre_usuario=sesion.nombre)
+        self.ventana = MainWindow(view_model=self.vm, nombre_usuario=sesion.nombre, correo_usuario=sesion.email)
         self.ventana.cerrar_sesion_solicitada.connect(self._cerrar_sesion)
         self.ventana.eliminar_cuenta_solicitada.connect(self._eliminar_cuenta)
         self.ventana.ventana_cerrada.connect(self._app.quit)

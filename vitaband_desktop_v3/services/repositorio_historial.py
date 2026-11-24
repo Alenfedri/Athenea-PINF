@@ -47,7 +47,7 @@ AMBITO_ACTIVIDAD = "actividad"
 # para no dejar datos personales huérfanos al eliminar una cuenta (RF-39).
 TABLAS_DE_USUARIO = ("mediciones", "actividades", "ecg_bloques", "observaciones", "sync_archivos", "hrv_reposo",
                      "marcadores_contexto", "vueltas_sesion", "tests_ortostaticos", "notas_sesion",
-                     "perfil_fisiologico")
+                     "perfil_fisiologico", "rr_ventanas", "disciplinas_sesion")
 _LOTE = 500                                    # ids por sentencia SQL (límite de variables de SQLite)
 
 
@@ -124,6 +124,22 @@ CREATE TABLE IF NOT EXISTS notas_sesion (
     sesion_id   INTEGER NOT NULL,
     rpe         INTEGER,
     nota        TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (usuario_id, sesion_id)
+);
+
+-- Intervalos R-R (ms, separados por comas) de cada ventana de 1 min de ECG válido (Poincaré)
+CREATE TABLE IF NOT EXISTS rr_ventanas (
+    usuario_id INTEGER NOT NULL,
+    ts         INTEGER NOT NULL,
+    rr         TEXT    NOT NULL,
+    PRIMARY KEY (usuario_id, ts)
+);
+
+-- Disciplina deportiva de cada actividad
+CREATE TABLE IF NOT EXISTS disciplinas_sesion (
+    usuario_id INTEGER NOT NULL,
+    sesion_id  INTEGER NOT NULL,
+    disciplina TEXT    NOT NULL,
     PRIMARY KEY (usuario_id, sesion_id)
 );
 
@@ -442,6 +458,36 @@ class RepositorioHistorial:
                 "INSERT OR REPLACE INTO perfil_fisiologico VALUES (?, ?, ?, ?, ?)",
                 (self._usuario_id, edad, sexo, peso_kg, int(objetivo_semanal_min)))
 
+    # --- R-R (Poincaré) y disciplinas ---
+
+    def guardar_rr(self, ts: int, rr_ms: Sequence[float]) -> None:
+        if not rr_ms:
+            return
+        with self._conn:
+            self._conn.execute("INSERT OR REPLACE INTO rr_ventanas (usuario_id, ts, rr) VALUES (?, ?, ?)",
+                               (self._usuario_id, int(ts), ",".join(f"{float(v):.1f}" for v in rr_ms)))
+
+    def rr_rango(self, desde_ts: int, hasta_ts: int) -> list[list[float]]:
+        """Intervalos R-R por ventana (no se mezclan entre ventanas) con inicio en [desde, hasta)."""
+        return [[float(v) for v in f[0].split(",") if v] for f in self._conn.execute(
+            "SELECT rr FROM rr_ventanas WHERE usuario_id = ? AND ts >= ? AND ts < ? ORDER BY ts",
+            (self._usuario_id, int(desde_ts), int(hasta_ts)))]
+
+    def guardar_disciplina(self, sesion_id: int, disciplina: Optional[str]) -> None:
+        """Etiqueta la actividad; ``None`` o vacío quita la etiqueta."""
+        with self._conn:
+            if not disciplina:
+                self._conn.execute("DELETE FROM disciplinas_sesion WHERE usuario_id = ? AND sesion_id = ?",
+                                   (self._usuario_id, sesion_id))
+                return
+            self._conn.execute(
+                "INSERT OR REPLACE INTO disciplinas_sesion (usuario_id, sesion_id, disciplina) VALUES (?, ?, ?)",
+                (self._usuario_id, sesion_id, str(disciplina)))
+
+    def disciplinas(self) -> dict[int, str]:
+        return {f[0]: f[1] for f in self._conn.execute(
+            "SELECT sesion_id, disciplina FROM disciplinas_sesion WHERE usuario_id = ?", (self._usuario_id,))}
+
     def perfil(self) -> Optional[sqlite3.Row]:
         return self._conn.execute("SELECT * FROM perfil_fisiologico WHERE usuario_id = ?",
                                   (self._usuario_id,)).fetchone()
@@ -658,6 +704,7 @@ class RepositorioHistorial:
                     "DELETE FROM observaciones WHERE usuario_id = ? AND tipo = 'ACTIVIDAD' AND actividad_id = ?",
                     (u, aid))
                 self._conn.execute("DELETE FROM notas_sesion WHERE usuario_id = ? AND sesion_id = ?", (u, aid))
+                self._conn.execute("DELETE FROM disciplinas_sesion WHERE usuario_id = ? AND sesion_id = ?", (u, aid))
                 self._conn.execute("DELETE FROM actividades WHERE usuario_id = ? AND id = ?", (u, aid))
 
             # 2. Historial periódico vencido
@@ -674,6 +721,7 @@ class RepositorioHistorial:
             # 2c. Marcadores de contexto vencidos
             self._conn.execute("DELETE FROM marcadores_contexto WHERE usuario_id = ? AND ts < ?", (u, corte_per))
             self._conn.execute("DELETE FROM vueltas_sesion WHERE usuario_id = ? AND ts < ?", (u, corte_per))
+            self._conn.execute("DELETE FROM rr_ventanas WHERE usuario_id = ? AND ts < ?", (u, min(corte_per, corte_act)))
 
             # 3. ECG vencido que no cae dentro de una actividad conservada
             bloques = self._conn.execute(
@@ -766,6 +814,8 @@ class RepositorioHistorial:
                 "DELETE FROM observaciones WHERE usuario_id = ? AND tipo = 'ACTIVIDAD' AND actividad_id = ?",
                 (u, actividad_id))
             self._conn.execute("DELETE FROM notas_sesion WHERE usuario_id = ? AND sesion_id = ?", (u, actividad_id))
+            self._conn.execute("DELETE FROM disciplinas_sesion WHERE usuario_id = ? AND sesion_id = ?",
+                               (u, actividad_id))
             return self._conn.execute(
                 "DELETE FROM actividades WHERE usuario_id = ? AND id = ?", (u, actividad_id)).rowcount > 0
 

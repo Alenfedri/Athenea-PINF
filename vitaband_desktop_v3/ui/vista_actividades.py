@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from domain import analisis
 from domain import ecg_historico
+from services import disciplinas as disc, ratio_pulso_resp as ratio_mod
 from services.metricas_avanzadas import texto_hrr60
 from ui.formato import duracion, fecha_hora, texto_interrupciones
 from ui.barra_zonas import BarraZonas
@@ -41,6 +42,7 @@ from ui.grafica_serie import GraficaSerie
 from ui.panel_comparador import PanelComparador
 from ui.panel_ecg_zoom import PanelEcgZoom
 from ui.panel_observaciones import PanelObservaciones
+from ui.panel_poincare import PanelPoincare
 from ui.selector_rango import SelectorRango
 from ui.vista_historial import celda, formatear_valor
 from viewmodel.vitaband_vm import VitaBandViewModel
@@ -56,6 +58,8 @@ class VistaActividades(QWidget):
         super().__init__(parent)
         self.vm = view_model
         self._detalle = None
+        self._etiquetas: dict = {}
+        self._prs: dict = {}
         self._construir_ui()
 
         self.selector.cambiado.connect(self.actualizar)
@@ -78,6 +82,17 @@ class VistaActividades(QWidget):
         self.lbl_carga = QLabel()
         self.lbl_carga.setStyleSheet("font-weight: bold; color: #1a5276; padding: 2px;")
         capa.addWidget(self.lbl_carga)
+        fila_filtro = QHBoxLayout()
+        fila_filtro.addWidget(QLabel("Disciplina"))
+        self.combo_filtro_disciplina = QComboBox()
+        self.combo_filtro_disciplina.addItem("Todas", None)
+        for dname in disc.DISCIPLINAS:
+            self.combo_filtro_disciplina.addItem(dname, dname)
+        self.combo_filtro_disciplina.addItem("Sin disciplina", "")
+        self.combo_filtro_disciplina.currentIndexChanged.connect(self.actualizar)
+        fila_filtro.addWidget(self.combo_filtro_disciplina)
+        fila_filtro.addStretch()
+        capa.addLayout(fila_filtro)
 
         self.tabla = QTableWidget(0, len(CABECERAS))
         self.tabla.setHorizontalHeaderLabels(CABECERAS)
@@ -111,6 +126,8 @@ class VistaActividades(QWidget):
         self.pestanas_grafica = QTabWidget()
         self.pestanas_grafica.addTab(self.grafica, "Serie")
         self.pestanas_grafica.addTab(self.grafica_cruce, "Pulso y respiración")
+        self.panel_poincare = PanelPoincare()
+        self.pestanas_grafica.addTab(self.panel_poincare, "Poincaré")
         self.barra_zonas = BarraZonas()
         self.lbl_umbral = QLabel()
         self.lbl_umbral.setWordWrap(True)
@@ -124,6 +141,24 @@ class VistaActividades(QWidget):
             d.addWidget(w)
         d.addLayout(fila)
         d.addWidget(self.barra_zonas)
+
+        # Disciplina y récords personales
+        fila_disc = QHBoxLayout()
+        fila_disc.addWidget(QLabel("Disciplina de esta sesión"))
+        self.combo_disciplina = QComboBox()
+        self.combo_disciplina.addItem("— sin disciplina —", "")
+        for dname in disc.DISCIPLINAS:
+            self.combo_disciplina.addItem(dname, dname)
+        self.btn_disciplina = QPushButton("Guardar disciplina")
+        self.btn_disciplina.clicked.connect(self._guardar_disciplina)
+        fila_disc.addWidget(self.combo_disciplina)
+        fila_disc.addWidget(self.btn_disciplina)
+        fila_disc.addStretch()
+        d.addLayout(fila_disc)
+        self.lbl_prs = QLabel()
+        self.lbl_prs.setWordWrap(True)
+        self.lbl_prs.setStyleSheet("font-weight: bold; color: #b7950b;")
+        d.addWidget(self.lbl_prs)
 
         # Desglose por vueltas (Lap) y valoración RPE
         self.tabla_vueltas = QTableWidget(0, 4)
@@ -228,6 +263,8 @@ class VistaActividades(QWidget):
             self.comparador.mostrar_mensaje("No se pudieron cargar las dos sesiones.")
         else:
             self.comparador.mostrar(comparativa)
+            e = self.vm.disciplinas()
+            self.comparador.mostrar_aviso(disc.aviso_comparacion(e.get(ids[0]), e.get(ids[1])))
 
     @Slot()
     def _on_datos_nuevos(self) -> None:
@@ -241,6 +278,11 @@ class VistaActividades(QWidget):
         self.lbl_carga.setText(self.vm.carga_entrenamiento().texto)
         desde, hasta = self.selector.rango_ts()
         resumenes = self.vm.actividades(desde, hasta)
+        self._etiquetas = self.vm.disciplinas()
+        self._prs = self.vm.records_personales()
+        filtro = self.combo_filtro_disciplina.currentData()
+        if filtro is not None:
+            resumenes = [r for r in resumenes if self._etiquetas.get(r.actividad.id, "") == filtro]
 
         self.tabla.blockSignals(True)
         self.tabla.setRowCount(len(resumenes))
@@ -248,7 +290,7 @@ class VistaActividades(QWidget):
         for i, r in enumerate(resumenes):
             a = r.actividad
             valores = (
-                fecha_hora(a.inicio_ts), a.tipo or "—", duracion(a.duracion_s), str(r.mediciones),
+                fecha_hora(a.inicio_ts), self._texto_tipo(a), duracion(a.duracion_s), str(r.mediciones),
                 formatear_valor(r.fc.media if r.fc else None, "bpm"),
                 formatear_valor(r.fc.maximo if r.fc else None, "bpm"),
             )
@@ -282,6 +324,23 @@ class VistaActividades(QWidget):
 
     # ------------------------------------------------------------------
 
+    def _texto_tipo(self, a) -> str:
+        d = self._etiquetas.get(a.id)
+        base = a.tipo or ("—" if not d else "")
+        texto = f"{base} · {d}".strip(" ·") if d else base
+        return texto + (" 🏆" if self._prs.get(a.id) else "")
+
+    @Slot()
+    def _guardar_disciplina(self) -> None:
+        d = self._detalle
+        if d is None:
+            return
+        try:
+            self.vm.guardar_disciplina(d.actividad.id, self.combo_disciplina.currentData() or None)
+            self.actualizar()
+        except Exception as error:
+            QMessageBox.warning(self, "No se pudo guardar", str(error))
+
     def _mostrar_detalle(self, detalle) -> None:
         self._detalle = detalle
         if detalle is None:
@@ -297,6 +356,9 @@ class VistaActividades(QWidget):
             self.btn_eliminar.setEnabled(False)
             self.btn_tcx.setEnabled(False)
             self.tabla_vueltas.setVisible(False)
+            self.panel_poincare.mostrar(None)
+            self.lbl_prs.setText("")
+            self.btn_disciplina.setEnabled(False)
             self.btn_valoracion.setEnabled(False)
             self.spin_rpe.setValue(0)
             self.edit_nota.clear()
@@ -313,6 +375,7 @@ class VistaActividades(QWidget):
         self._dibujar_grafica()
         self._mostrar_zonas_y_umbral(detalle)
         self._mostrar_vueltas_y_valoracion(detalle)
+        self._mostrar_disciplina_y_poincare(detalle)
 
         reducido = ecg_historico.reducir(detalle.ecg, a.inicio_ts, a.fin_ts + 1, BINS_ECG)
         self.panel_ecg.mostrar(reducido, a.inicio_ts, a.fin_ts + 1)
@@ -339,6 +402,15 @@ class VistaActividades(QWidget):
         umbral = analisis.umbral_interrupcion([m.ts for m in d.mediciones], 5)
         self.grafica.mostrar_pares(
             variable, pares, d.interrupciones, umbral, d.actividad.inicio_ts, d.actividad.fin_ts)
+
+    def _mostrar_disciplina_y_poincare(self, detalle) -> None:
+        a = detalle.actividad
+        i = self.combo_disciplina.findData(self.vm.disciplinas().get(a.id, ""))
+        self.combo_disciplina.setCurrentIndex(max(i, 0))
+        self.btn_disciplina.setEnabled(True)
+        prs = self.vm.records_personales().get(a.id, [])
+        self.lbl_prs.setText("🏆 " + " · ".join(prs) if prs else "")
+        self.panel_poincare.mostrar(self.vm.poincare(a.inicio_ts, a.fin_ts + 1))
 
     def _mostrar_vueltas_y_valoracion(self, detalle) -> None:
         vueltas = self.vm.desglose_vueltas(detalle)
@@ -373,6 +445,11 @@ class VistaActividades(QWidget):
         t = m["trimp"]
         extra = [f"\nTRIMP: {'N/D' if t is None else f'{t:.0f}'} · Recuperación cardíaca 1 min (HRR-60): {texto_hrr60(m['hrr60'])}"]
         kcal = self.vm.kcal_actividad(detalle)
+        r, bajos = ratio_mod.ratio_medio(detalle.mediciones)
+        extra.append(f"Pulso/respiración medio: {ratio_mod.texto_ratio(r)}" + (
+            f" ({ratio_mod.estado(r)}; óptimo ≈ 4:1)" if r is not None else "")
+            + (f" · {bajos:.0f} % del tiempo por debajo de 3:1 (posible hiperventilación o fatiga respiratoria)"
+               if bajos >= 20 else ""))
         extra.append("Energía estimada (Keytel): " + (
             f"{kcal:.0f} kcal" if kcal is not None else "N/D (indica edad y sexo en «Perfil fisiológico»)"))
         if m["deriva"] is not None:

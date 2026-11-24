@@ -344,6 +344,8 @@ class BaseCuentas(unittest.TestCase):
         h.guardar_test_ortostatico(ts(8), 60.0, 40.0, 85.0, 70.0, 35.0, 25.0, "Normal")
         h.guardar_nota_sesion(1, 6, "ok")
         h.guardar_perfil(30, "Mujer", 60.0, 150)
+        h.guardar_rr(1_700_000_000, [800.0, 810.0, 790.0])
+        h.guardar_disciplina(1, "Carrera")
         return h
 
     def filas(self, tabla, usuario_id):

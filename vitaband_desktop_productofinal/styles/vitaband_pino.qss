@@ -1,0 +1,57 @@
+/* VitaBand — Verde Pino & Obsidiana */
+QWidget { background-color: #090E0C; color: #F2F6F4; selection-background-color: #1B4D3E; selection-color: #F2F6F4; }
+QMainWindow, QDialog, QMessageBox { background-color: #090E0C; }
+QLabel { background: transparent; color: #F2F6F4; }
+QToolTip { background-color: #17221E; color: #F2F6F4; border: 1px solid #21312B; padding: 4px; }
+QStatusBar { background-color: #111916; color: #8BA096; border-top: 1px solid #21312B; }
+
+QPushButton { background-color: #17221E; color: #F2F6F4; border: 1px solid #21312B; border-radius: 6px; padding: 5px 12px; }
+QPushButton:hover { background-color: #1B4D3E; border-color: #10B981; }
+QPushButton:pressed { background-color: #10B981; color: #090E0C; }
+QPushButton:checked { background-color: #1B4D3E; border-color: #34D399; }
+QPushButton:disabled { background-color: #111916; color: #5B6B63; border-color: #1A2622; }
+
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QComboBox {
+    background-color: #111916; color: #F2F6F4; border: 1px solid #21312B; border-radius: 5px; padding: 3px 6px; }
+QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QComboBox:focus { border-color: #10B981; }
+QComboBox QAbstractItemView, QCalendarWidget QAbstractItemView { background-color: #111916; color: #F2F6F4;
+    selection-background-color: #1B4D3E; border: 1px solid #21312B; }
+QComboBox::drop-down, QDateEdit::drop-down { border: none; width: 20px; }
+
+QTabWidget::pane { border: 1px solid #21312B; border-radius: 6px; background-color: #090E0C; }
+QTabBar::tab { background-color: #111916; color: #8BA096; padding: 7px 16px; border: 1px solid #21312B; border-bottom: none;
+    border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }
+QTabBar::tab:selected { background-color: #17221E; color: #34D399; border-color: #10B981; }
+QTabBar::tab:hover:!selected { color: #F2F6F4; }
+
+QTableWidget, QTableView, QListWidget, QTreeView { background-color: #111916; alternate-background-color: #17221E; color: #F2F6F4;
+    gridline-color: #21312B; border: 1px solid #21312B; }
+QTableWidget::item:selected, QTableView::item:selected, QListWidget::item:selected { background-color: #1B4D3E; color: #F2F6F4; }
+QHeaderView::section { background-color: #17221E; color: #8BA096; border: none; border-right: 1px solid #21312B;
+    border-bottom: 1px solid #21312B; padding: 5px; font-weight: bold; }
+
+QScrollBar:vertical { background: #090E0C; width: 12px; margin: 0; }
+QScrollBar:horizontal { background: #090E0C; height: 12px; margin: 0; }
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: #21312B; border-radius: 5px; min-height: 24px; min-width: 24px; }
+QScrollBar::handle:hover { background: #1B4D3E; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: none; }
+
+QProgressBar { background-color: #111916; border: 1px solid #21312B; border-radius: 5px; text-align: center; color: #F2F6F4; }
+QProgressBar::chunk { background-color: #10B981; border-radius: 4px; }
+
+QSlider::groove:horizontal { height: 6px; background: #21312B; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: #10B981; border-radius: 3px; }
+QSlider::handle:horizontal { background: #34D399; width: 14px; margin: -5px 0; border-radius: 7px; }
+
+QCheckBox, QRadioButton { background: transparent; spacing: 6px; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #21312B; border-radius: 4px; background: #111916; }
+QCheckBox::indicator:checked { background: #10B981; border-color: #34D399; }
+
+QGroupBox { border: 1px solid #21312B; border-radius: 6px; margin-top: 10px; padding-top: 8px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; color: #34D399; }
+QSplitter::handle { background-color: #21312B; }
+QMenu { background-color: #111916; border: 1px solid #21312B; }
+QMenu::item:selected { background-color: #1B4D3E; }
+QCalendarWidget QWidget { background-color: #111916; color: #F2F6F4; }
+QFrame[frameShape="4"], QFrame[frameShape="5"] { color: #21312B; }

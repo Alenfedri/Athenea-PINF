@@ -265,6 +265,14 @@ Todo con la banda pectoral ECG de VitaBand. Son estimaciones, no están validada
 - **Botón PNG** junto al ECG, el comparador y la gráfica del Historial (doble resolución).
 - Tablas nuevas (`CREATE TABLE IF NOT EXISTS`): `vueltas_sesion`, `tests_ortostaticos`, `notas_sesion`, `perfil_fisiologico`.
 
+### 3.8 Coherencia, Poincaré, VO2máx, disciplinas, ratio y anonimización
+
+Con la banda pectoral ECG de VitaBand (estimaciones orientativas, sin validar con una banda real): **Coherencia Cardíaca**
+(2/3/5 min a 6 RPM, índice % de BPM sincronizado), **Poincaré** con SD1/SD2 y latidos atípicos (usa los R-R guardados desde ahora,
+tabla `rr_ventanas`), **VO2máx de Uth** con edad cardiovascular mensual, **disciplinas y PRs** (tabla `disciplinas_sesion`; PR = menor BPM
+medio en la misma franja de duración o más tiempo en Z2; un empate no cuenta), **ratio BPM/RPM** (alerta < 3:1 sostenido 60 s),
+**Modo Escritorio** (ventana 20 min) y casilla **Anonimizar datos personales** (`SUJETO-` + 6 hex SHA-256 del correo en PDF y columna `sujeto` del CSV).
+
 ## 4. Cómo se comunica con la app móvil
 
 No hay servidor ni conexión directa. El móvil deja un archivo `.json` en una **carpeta de
@@ -292,7 +300,7 @@ lo genera.** Quien la desarrolle tiene que adaptarla a este contrato, o acordar 
 ## 5. Estado actual y limitaciones
 
 **Terminado y probado por software.** Cuentas y verificación en dos pasos, historial, actividades,
-zoom del ECG, observaciones, importación de paquetes, CSV y borrados. Hay 640 tests automáticos que
+zoom del ECG, observaciones, importación de paquetes, CSV y borrados. Hay 750 tests automáticos que
 pasan (lógica, interfaz sin pantalla y un recorrido completo: paquete de demo, sincronización,
 consultas, observaciones, CSV, borrado de una medición y borrado de la cuenta).
 

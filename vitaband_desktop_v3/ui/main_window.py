@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QStatusBar,
     QTabWidget,
     QVBoxLayout,
@@ -22,8 +23,10 @@ from domain.calidad_contacto import CalidadContacto
 from domain.ui_state import ConexionEstado, VitaBandUiState
 from ui.confirmaciones import confirmar
 from ui.dialogo_eliminar_cuenta import DialogoEliminarCuenta
+from ui.dialogo_coherencia import DialogoCoherencia
 from ui.dialogo_ortostatico import DialogoOrtostatico
 from ui.dialogo_perfil import DialogoPerfil
+from services import anonimizar as anonimizar_mod, ratio_pulso_resp as ratio_mod
 from ui.exportar_png import boton_png
 from ui.modo_entrenamiento import DialogoEntrenamiento
 from ui.vista_actividades import VistaActividades
@@ -44,10 +47,11 @@ class MainWindow(QMainWindow):
     # RF-39: se emite solo tras la doble confirmación; lleva la contraseña para revalidarla
     eliminar_cuenta_solicitada = Signal(str)
 
-    def __init__(self, view_model: VitaBandViewModel, nombre_usuario: str = ""):
+    def __init__(self, view_model: VitaBandViewModel, nombre_usuario: str = "", correo_usuario: str = ""):
         super().__init__()
         self.vm = view_model
         self._nombre_usuario = nombre_usuario
+        self._correo_usuario = correo_usuario
         self._modo_y_aplicado = None  # None = escala Y aún sin fijar
         self.alertas = SupervisorAlertas()
         self._alertas_activas: tuple = ()
@@ -88,6 +92,9 @@ class MainWindow(QMainWindow):
         barra_top.addWidget(self.btn_sincronizar)
         barra_top.addWidget(self.btn_exportar_csv)
         barra_top.addWidget(self.btn_exportar_pdf)
+        self.chk_anonimizar = QCheckBox("Anonimizar datos personales")
+        self.chk_anonimizar.setToolTip("Sustituye nombre y correo por un identificador SUJETO-xxxxxx en el PDF y el CSV")
+        barra_top.addWidget(self.chk_anonimizar)
         barra_top.addWidget(self.lbl_usuario)
         barra_top.addWidget(self.btn_perfil)
         barra_top.addWidget(self.btn_backup)
@@ -169,11 +176,47 @@ class MainWindow(QMainWindow):
         self.lbl_pausa = QLabel()
         self.lbl_pausa.setStyleSheet("font-weight: bold; color: #ffffff; background:#e67e22; padding: 2px 8px;")
         self.lbl_pausa.setVisible(False)
-        for w in (self.btn_lap, self.btn_ortostatico, self.lbl_vuelta, self.lbl_pausa):
+        self.btn_coherencia = QPushButton("Coherencia Cardíaca")
+        self.btn_coherencia.clicked.connect(self._abrir_coherencia)
+        for w in (self.btn_lap, self.btn_ortostatico, self.btn_coherencia, self.lbl_vuelta, self.lbl_pausa):
             fila_sesion.addWidget(w)
         fila_sesion.addStretch()
         fila_sesion.addWidget(self.lbl_sesion)
         layout.addLayout(fila_sesion)
+
+        # Cociente pulso/respiración y Modo Escritorio (pausa activa por estrés)
+        fila_extra = QHBoxLayout()
+        self.lbl_ratio = QLabel("Pulso/respiración: N/D")
+        self.lbl_alerta_ratio = QLabel()
+        self.lbl_alerta_ratio.setStyleSheet("color: #7a4b00; background:#ffe8b0; padding: 2px 8px;")
+        self.lbl_alerta_ratio.setWordWrap(True)
+        self.lbl_alerta_ratio.setVisible(False)
+        self.chk_escritorio = QCheckBox("Modo Escritorio")
+        self.chk_escritorio.setToolTip("Avisa si en reposo baja tu RMSSD y sube tu respiración de forma sostenida")
+        self.spin_escritorio = QSpinBox()
+        self.spin_escritorio.setRange(10, 120)
+        self.spin_escritorio.setValue(20)
+        self.spin_escritorio.setSuffix(" min")
+        self.chk_escritorio.toggled.connect(self._cambio_escritorio)
+        self.spin_escritorio.valueChanged.connect(self._cambio_escritorio)
+        self.lbl_estres = QLabel()
+        self.lbl_estres.setWordWrap(True)
+        self.lbl_estres.setStyleSheet("color: #14532d; background:#d7f0dd; padding: 2px 8px;")
+        self.btn_estres_coherencia = QPushButton("Abrir Coherencia Cardíaca")
+        self.btn_estres_coherencia.clicked.connect(self._abrir_coherencia)
+        self.lbl_estres.setVisible(False)
+        self.btn_estres_coherencia.setVisible(False)
+        for w in (self.lbl_ratio, self.lbl_alerta_ratio):
+            fila_extra.addWidget(w)
+        fila_extra.addStretch()
+        for w in (self.chk_escritorio, self.spin_escritorio):
+            fila_extra.addWidget(w)
+        layout.addLayout(fila_extra)
+        fila_estres = QHBoxLayout()
+        fila_estres.addWidget(self.lbl_estres, 1)
+        fila_estres.addWidget(self.btn_estres_coherencia)
+        layout.addLayout(fila_estres)
+        self.vm.aviso_estres.connect(self._mostrar_aviso_estres)
         self._timer_vuelta = QTimer(self)
         self._timer_vuelta.setSingleShot(True)
         self._timer_vuelta.setInterval(2500)
@@ -260,7 +303,9 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            filas = self.vm.exportar_csv(ruta)
+            sujeto = (anonimizar_mod.seudonimo(self._correo_usuario, self._nombre_usuario)
+                      if self.chk_anonimizar.isChecked() else None)
+            filas = self.vm.exportar_csv(ruta, sujeto=sujeto)
         except Exception as exc:
             QMessageBox.warning(self, "No se pudo exportar", f"Error al exportar el historial:\n{exc}")
             return
@@ -306,6 +351,32 @@ class MainWindow(QMainWindow):
         dialogo = getattr(self, "modo_entrenamiento", None)
         if dialogo is not None and dialogo.isVisible():
             dialogo.mostrar_vuelta(texto)
+
+    @Slot()
+    def _abrir_coherencia(self) -> None:
+        self.lbl_estres.setVisible(False)
+        self.btn_estres_coherencia.setVisible(False)
+        self.dialogo_coherencia = DialogoCoherencia(self.vm, parent=self)
+        self.dialogo_coherencia.show()
+
+    def _cambio_escritorio(self, *_args) -> None:
+        self.vm.configurar_modo_escritorio(self.chk_escritorio.isChecked(), self.spin_escritorio.value())
+        if not self.chk_escritorio.isChecked():
+            self.lbl_estres.setVisible(False)
+            self.btn_estres_coherencia.setVisible(False)
+
+    @Slot(str)
+    def _mostrar_aviso_estres(self, texto: str) -> None:
+        self.lbl_estres.setText(texto)
+        self.lbl_estres.setVisible(True)
+        self.btn_estres_coherencia.setVisible(True)
+
+    def _pintar_ratio(self) -> None:
+        r, alerta = self.vm.ratio_directo()
+        estado = ratio_mod.estado(r)
+        self.lbl_ratio.setText(f"Pulso/respiración: {ratio_mod.texto_ratio(r)}" + (f" ({estado}; óptimo ≈ 4:1)" if estado else ""))
+        self.lbl_alerta_ratio.setText(ratio_mod.TEXTO_ALERTA)
+        self.lbl_alerta_ratio.setVisible(alerta)
 
     @Slot()
     def _abrir_ortostatico(self) -> None:
@@ -375,7 +446,8 @@ class MainWindow(QMainWindow):
         if not ruta.lower().endswith(".pdf"):
             ruta += ".pdf"
         try:
-            self.vm.exportar_pdf(ruta, desde, hasta, self._nombre_usuario)
+            self.vm.exportar_pdf(ruta, desde, hasta, self._nombre_usuario, self._correo_usuario,
+                                 self.chk_anonimizar.isChecked())
         except Exception as exc:
             QMessageBox.warning(self, "No se pudo exportar", f"Error al generar el informe:\n{exc}")
             return
@@ -425,6 +497,7 @@ class MainWindow(QMainWindow):
         self._pintar_calidad(state.calidadContacto, en_curso)
 
         self._pintar_sesion()
+        self._pintar_ratio()
         resultado = self.alertas.evaluar(state)
         if resultado.activas != self._alertas_activas:
             self._pintar_alertas(resultado.activas)

@@ -32,12 +32,12 @@ def _num(v: Optional[float], decimales: int) -> str:
     return "" if v is None else f"{v:.{decimales}f}".replace(".", ",")
 
 
-def exportar_historial_csv(registros: Iterable[Medicion], ruta: str) -> int:
+def exportar_historial_csv(registros: Iterable[Medicion], ruta: str, sujeto: Optional[str] = None) -> int:
     """Escribe las mediciones en ``ruta`` y devuelve cuántas se exportaron."""
     n = 0
     with open(ruta, "w", newline="", encoding="utf-8-sig") as archivo:
         escritor = csv.writer(archivo, delimiter=";")
-        escritor.writerow(CABECERA)
+        escritor.writerow(CABECERA + (() if sujeto is None else ("sujeto",)))
         for m in registros:
             instante = m.instante
             escritor.writerow((
@@ -48,6 +48,6 @@ def exportar_historial_csv(registros: Iterable[Medicion], ruta: str) -> int:
                 _num(m.temp_c, 2),
                 "" if m.nivel_actividad is None else _NIVELES.get(m.nivel_actividad, ""),
                 m.etiqueta,
-            ))
+            ) + (() if sujeto is None else (sujeto,)))
             n += 1
     return n
